@@ -1,0 +1,36 @@
+import { createApp } from 'vue'
+import { createPinia } from 'pinia'
+import { createRouter, createWebHistory } from 'vue-router'
+import { routes } from './router'
+import App from './App.vue'
+import './styles.css'
+import { registerSW } from 'virtual:pwa-register'
+import { useAuthStore } from './stores/auth'
+import { flushUploadQueue } from './lib/uploadQueue'
+
+registerSW({ immediate: true })
+
+const router = createRouter({
+  history: createWebHistory(),
+  routes
+})
+
+const pinia = createPinia()
+
+router.beforeEach((to) => {
+  if (to.path === '/dashboard' || to.path === '/settings' || to.path === '/history') {
+    const auth = useAuthStore(pinia)
+    if (!auth.isAuthed) return { path: '/login' }
+  }
+  return true
+})
+
+window.addEventListener('online', async () => {
+  try {
+    await flushUploadQueue()
+  } catch {
+    // ignore
+  }
+})
+
+createApp(App).use(pinia).use(router).mount('#app')

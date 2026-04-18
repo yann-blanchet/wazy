@@ -1,0 +1,16 @@
+name = "vazy"
+main = "src/index.ts"
+compatibility_date = "2026-04-16"
+
+[vars]
+APP_ORIGIN = "http://localhost:5173"
+
+[[r2_buckets]]
+binding = "PRIVATE_MENUS"
+bucket_name = "vazy-private-menus"
+
+[[kv_namespaces]]
+binding = "RESTAURANTS" 
+id = "e345b0fad31c40b684337dda71d4a941"
+
+# Optional: for local dev you can use `wrangler kv:namespace create` and set the id.

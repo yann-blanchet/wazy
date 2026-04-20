@@ -10,7 +10,9 @@ type RestaurantPublic = {
   id: string
   name: string
   address: string
+  city?: string
   phone: string
+  cuisineType?: string
 }
 
 type MenuItem = {
@@ -195,7 +197,9 @@ async function handle(req: Request, env: Env): Promise<Response> {
         id,
         name: 'New restaurant',
         address: '',
-        phone: ''
+        city: '',
+        phone: '',
+        cuisineType: ''
       },
       menus: []
     }
@@ -274,13 +278,15 @@ async function handle(req: Request, env: Env): Promise<Response> {
     if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
     if (auth.role !== 'master') return json({ error: 'forbidden' }, { status: 403 })
 
-    const body = await readJson<{ name?: string; address?: string; phone?: string }>(req)
+    const body = await readJson<{ name?: string; address?: string; city?: string; phone?: string; cuisineType?: string }>(req)
 
     auth.rec.public = {
       id: auth.rec.id,
       name: typeof body.name === 'string' ? body.name : auth.rec.public.name,
       address: typeof body.address === 'string' ? body.address : auth.rec.public.address,
-      phone: typeof body.phone === 'string' ? body.phone : auth.rec.public.phone
+      city: typeof body.city === 'string' ? body.city : auth.rec.public.city,
+      phone: typeof body.phone === 'string' ? body.phone : auth.rec.public.phone,
+      cuisineType: typeof body.cuisineType === 'string' ? body.cuisineType : auth.rec.public.cuisineType
     }
 
     await putRestaurant(env, auth.rec)

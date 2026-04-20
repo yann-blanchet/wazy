@@ -14,11 +14,36 @@ const auth = useAuthStore()
 const workerKey = ref<string>('')
 const name = ref<string>('')
 const address = ref<string>('')
+const city = ref<string>('')
 const phone = ref<string>('')
+const cuisineType = ref<string>('')
 const profileStatus = ref<string>('')
+
+const cuisineSheetOpen = ref<boolean>(false)
+const cuisineOptions = [
+  'Asiatique',
+  'Bistrot',
+  'Italien',
+  'Indien',
+  'Libanais',
+  'Mexicain',
+  'Burger',
+  'Pizza',
+  'Crêperie',
+  'Boulangerie',
+  'Gastronomique',
+  'Végétarien'
+]
 
 const onboarding = computed(() => route.query.onboarding === '1')
 const nameInputEl = ref<HTMLInputElement | null>(null)
+
+const tab = ref<'infos' | 'share' | 'history'>('infos')
+
+function pickCuisine(v: string) {
+  cuisineType.value = v
+  cuisineSheetOpen.value = false
+}
 
 onMounted(async () => {
   try {
@@ -28,13 +53,15 @@ onMounted(async () => {
       workerKey.value = k.workerKey
       await refreshQr()
     }
-    const res = await apiFetch<{ restaurant: { name: string; address: string; phone: string } }>(
+    const res = await apiFetch<{ restaurant: { name: string; address: string; city?: string; phone: string; cuisineType?: string } }>(
       '/api/restaurant',
       { method: 'GET', key: auth.key }
     )
     name.value = res.restaurant.name ?? ''
     address.value = res.restaurant.address ?? ''
+    city.value = res.restaurant.city ?? ''
     phone.value = res.restaurant.phone ?? ''
+    cuisineType.value = res.restaurant.cuisineType ?? ''
 
     if (onboarding.value) {
       queueMicrotask(() => nameInputEl.value?.focus())
@@ -55,7 +82,10 @@ async function saveProfile() {
       body: {
         name: name.value,
         address: address.value,
+        city: city.value,
         phone: phone.value
+        ,
+        cuisineType: cuisineType.value
       }
     })
     profileStatus.value = 'Saved.'
@@ -78,6 +108,44 @@ const publicPageUrl = computed(() => {
   u.pathname = `/r/${auth.id}`
   return u.toString()
 })
+
+type MenuItem = { date: string; createdAt: number }
+const menus = ref<MenuItem[]>([])
+const historyError = ref<string>('')
+const historyLoading = ref<boolean>(false)
+
+const historyTiles = computed(() => {
+  const rid = auth.id
+  if (!rid) return [] as { date: string; url: string }[]
+  return menus.value.map((m) => ({
+    date: m.date,
+    url: `${apiFetchBase()}/api/public/${rid}/menu/${m.date}`
+  }))
+})
+
+async function loadHistory() {
+  historyError.value = ''
+  historyLoading.value = true
+  menus.value = []
+  try {
+    if (!auth.key) throw new Error('missing_auth')
+    const res = await apiFetch<{ id: string; menus: MenuItem[] }>('/api/menus', {
+      method: 'GET',
+      key: auth.key
+    })
+    menus.value = res.menus
+  } catch (e) {
+    historyError.value = e instanceof Error ? e.message : 'load_error'
+  } finally {
+    historyLoading.value = false
+  }
+}
+
+function apiFetchBase() {
+  const v = import.meta.env.VITE_API_BASE
+  const base = typeof v === 'string' && v.length > 0 ? v : 'https://vazy.instant-report.workers.dev'
+  return base.replace(/\/+$/, '')
+}
 
 async function copyPublicLink() {
   if (!publicPageUrl.value) return
@@ -133,101 +201,6 @@ async function logout() {
     </div>
 
     <section class="mt-6 rounded-2xl bg-white/5 p-5">
-      <h2 class="text-lg font-semibold">Restaurant</h2>
-      <p class="mt-1 text-sm text-slate-300">Shown on the public page.</p>
-      <p v-if="onboarding" class="mt-2 text-sm text-slate-200">Set your restaurant name, address and phone.</p>
-
-      <div class="mt-4 grid gap-3">
-        <label class="grid gap-2">
-          <span class="text-sm text-slate-300">Name</span>
-          <input
-            v-model="name"
-            ref="nameInputEl"
-            class="rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm outline-none focus:border-emerald-400/60"
-            autocomplete="organization"
-          />
-        </label>
-
-        <label class="grid gap-2">
-          <span class="text-sm text-slate-300">Address</span>
-          <input
-            v-model="address"
-            class="rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm outline-none focus:border-emerald-400/60"
-            autocomplete="street-address"
-          />
-        </label>
-
-        <label class="grid gap-2">
-          <span class="text-sm text-slate-300">Phone</span>
-          <input
-            v-model="phone"
-            class="rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm outline-none focus:border-emerald-400/60"
-            autocomplete="tel"
-          />
-        </label>
-
-        <button
-          class="rounded-xl bg-white/10 px-4 py-3 hover:bg-white/15"
-          :disabled="!auth.isMaster"
-          @click="saveProfile"
-        >
-          Save restaurant info
-        </button>
-
-        <div v-if="profileStatus" class="text-sm text-slate-300">{{ profileStatus }}</div>
-      </div>
-    </section>
-
-    <section class="mt-6 rounded-2xl bg-white/5 p-5">
-      <h2 class="text-lg font-semibold">Public link</h2>
-      <p class="mt-1 text-sm text-slate-300">Share with customers.</p>
-
-      <div v-if="publicPageUrl" class="mt-4 break-all rounded-xl bg-black/30 p-3 font-mono text-xs text-slate-300">
-        {{ publicPageUrl }}
-      </div>
-
-      <div class="mt-4 grid grid-cols-2 gap-2">
-        <button class="rounded-xl bg-white/10 px-4 py-3 text-sm hover:bg-white/15" :disabled="!publicPageUrl" @click="copyPublicLink">
-          Copy
-        </button>
-        <button class="rounded-xl bg-white/10 px-4 py-3 text-sm hover:bg-white/15" :disabled="!publicPageUrl" @click="openPublicLink">
-          Open
-        </button>
-      </div>
-    </section>
-
-    <section class="mt-6 rounded-2xl bg-white/5 p-5">
-      <h2 class="text-lg font-semibold">Worker key</h2>
-      <p class="mt-1 text-sm text-slate-300">Staff upload-only key (regeneratable).</p>
-
-      <div class="mt-4 break-all rounded-xl bg-black/30 p-3 font-mono text-sm">
-        {{ workerKey }}
-      </div>
-
-      <div v-if="workerLoginUrl" class="mt-3 break-all rounded-xl bg-black/30 p-3 font-mono text-xs text-slate-300">
-        {{ workerLoginUrl }}
-      </div>
-
-      <div v-if="qrDataUrl" class="mt-4 rounded-xl bg-white p-3">
-        <img class="w-full" :src="qrDataUrl" alt="Worker login QR" />
-      </div>
-
-      <div class="mt-4 grid gap-3">
-        <button class="rounded-xl bg-white/10 px-4 py-3 hover:bg-white/15" @click="regenerateWorkerKey">
-          Regenerate worker key
-        </button>
-
-        <button
-          class="rounded-xl bg-white/10 px-4 py-3 hover:bg-white/15"
-          :disabled="!qrDataUrl"
-          @click="downloadQrPng"
-        >
-          Download QR (PNG)
-        </button>
-      </div>
-    </section>
-
-    <section class="mt-6 rounded-2xl bg-white/5 p-5">
       <h2 class="text-lg font-semibold">Session</h2>
       <p class="mt-1 text-sm text-slate-300">Sign out from this device.</p>
 
@@ -235,5 +208,30 @@ async function logout() {
         Logout
       </button>
     </section>
+
+    <div v-if="cuisineSheetOpen" class="fixed inset-0 z-[80]">
+      <div class="absolute inset-0 bg-black/60" @click="cuisineSheetOpen = false" />
+      <div
+        class="absolute bottom-0 left-0 right-0 rounded-t-3xl border-t border-white/10 bg-slate-950 px-5 py-4"
+        style="padding-bottom: max(env(safe-area-inset-bottom), 16px)"
+      >
+        <div class="flex items-center justify-between">
+          <div class="text-sm font-medium text-slate-200">Type de cuisine</div>
+          <button class="text-sm text-slate-300 underline" @click="cuisineSheetOpen = false">Close</button>
+        </div>
+
+        <div class="mt-4 grid grid-cols-2 gap-2">
+          <button
+            v-for="c in cuisineOptions"
+            :key="c"
+            class="rounded-xl bg-white/5 px-4 py-3 text-sm text-slate-200 ring-1 ring-white/10 hover:bg-white/10"
+            @click="pickCuisine(c)"
+          >
+            {{ c }}
+          </button>
+        </div>
+      </div>
+    </div>
+
   </main>
 </template>

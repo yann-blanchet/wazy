@@ -12,8 +12,7 @@ const address = ref<string>('')
 const city = ref<string>('')
 const phone = ref<string>('')
 const cuisineType = ref<string>('')
-const status = ref<string>('')
-const saving = ref<boolean>(false)
+const profileStatus = ref<string>('')
 
 const cuisineSheetOpen = ref<boolean>(false)
 const cuisineOptions = [
@@ -31,41 +30,33 @@ const cuisineOptions = [
   'Végétarien'
 ]
 
-const nameInputEl = ref<HTMLInputElement | null>(null)
+function pickCuisine(v: string) {
+  cuisineType.value = v
+  cuisineSheetOpen.value = false
+}
 
 onMounted(async () => {
   try {
-    if (!auth.key) {
-      await router.replace('/login')
-      return
-    }
-
+    if (!auth.key) return
     const res = await apiFetch<{ restaurant: { name: string; address: string; city?: string; phone: string; cuisineType?: string } }>(
       '/api/restaurant',
       { method: 'GET', key: auth.key }
     )
-
     name.value = res.restaurant.name ?? ''
     address.value = res.restaurant.address ?? ''
     city.value = res.restaurant.city ?? ''
     phone.value = res.restaurant.phone ?? ''
     cuisineType.value = res.restaurant.cuisineType ?? ''
-
-    queueMicrotask(() => nameInputEl.value?.focus())
   } catch (e) {
-    status.value = e instanceof Error ? e.message : 'load_error'
+    profileStatus.value = e instanceof Error ? e.message : 'load_error'
   }
 })
 
-async function save() {
+async function saveProfile() {
   try {
     if (!auth.isMaster) throw new Error('forbidden')
     if (!auth.key) throw new Error('missing_auth')
-    if (name.value.trim().length === 0) throw new Error('missing_name')
-
-    saving.value = true
-    status.value = ''
-
+    profileStatus.value = 'Saving…'
     await apiFetch('/api/restaurant', {
       method: 'PUT',
       key: auth.key,
@@ -73,54 +64,35 @@ async function save() {
         name: name.value,
         address: address.value,
         city: city.value,
-        phone: phone.value
-        ,
+        phone: phone.value,
         cuisineType: cuisineType.value
       }
     })
-
-    await router.replace('/dashboard')
+    profileStatus.value = 'Saved.'
   } catch (e) {
-    status.value = e instanceof Error ? e.message : 'save_error'
-  } finally {
-    saving.value = false
+    profileStatus.value = e instanceof Error ? e.message : 'save_error'
   }
 }
 
-async function skip() {
-  await router.replace('/dashboard')
-}
-
-function pickCuisine(v: string) {
-  cuisineType.value = v
-  cuisineSheetOpen.value = false
+async function logout() {
+  auth.logout()
+  await router.push('/login')
 }
 </script>
 
 <template>
-  <main class="min-h-dvh bg-slate-950">
-    <div
-      class="sticky top-0 z-10 border-b border-white/10 bg-slate-950 px-5 py-4"
-      style="padding-top: max(env(safe-area-inset-top), 16px)"
-    >
-      <div class="flex items-center justify-between">
-        <div class="text-sm font-medium text-slate-200">Create your restaurant</div>
-        <button class="text-sm text-slate-300 underline" @click="skip">Skip</button>
-      </div>
-    </div>
+  <main class="mx-auto max-w-lg p-6 pb-28">
+    <div class="text-2xl font-semibold">Restaurant</div>
 
-    <div class="mx-auto grid max-w-lg gap-4 px-5 pb-24 pt-6" style="padding-bottom: max(env(safe-area-inset-bottom), 96px)">
-      <div class="grid gap-1">
-        <div class="text-base font-semibold text-slate-100">Restaurant details</div>
-        <div class="text-sm text-slate-300">Used on your public page.</div>
-      </div>
+    <section class="mt-6 rounded-2xl bg-white/5 p-5">
+      <h2 class="text-lg font-semibold">Infos</h2>
+      <p class="mt-1 text-sm text-slate-300">Shown on the public page.</p>
 
-      <div class="grid gap-3 rounded-2xl bg-white/5 p-5">
+      <div class="mt-4 grid gap-3">
         <label class="grid gap-2">
           <span class="text-sm text-slate-300">Name</span>
           <input
             v-model="name"
-            ref="nameInputEl"
             class="rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm outline-none focus:border-emerald-400/60"
             autocomplete="organization"
           />
@@ -165,20 +137,25 @@ function pickCuisine(v: string) {
         </label>
 
         <button
-          class="mt-1 w-full rounded-xl bg-emerald-500 px-4 py-3 text-sm font-medium text-emerald-950 hover:bg-emerald-400"
-          :disabled="saving || name.trim().length === 0"
-          @click="save"
+          class="rounded-xl bg-white/10 px-4 py-3 hover:bg-white/15"
+          :disabled="!auth.isMaster"
+          @click="saveProfile"
         >
-          Save and continue
+          Save restaurant info
         </button>
 
-        <div v-if="status" class="text-sm text-slate-300">{{ status }}</div>
+        <div v-if="profileStatus" class="text-sm text-slate-300">{{ profileStatus }}</div>
       </div>
+    </section>
 
-      <div class="text-xs text-slate-400">
-        You can change this later in Settings.
-      </div>
-    </div>
+    <section class="mt-6 rounded-2xl bg-white/5 p-5">
+      <h2 class="text-lg font-semibold">Session</h2>
+      <p class="mt-1 text-sm text-slate-300">Sign out from this device.</p>
+
+      <button class="mt-4 w-full rounded-xl bg-white/10 px-4 py-3 hover:bg-white/15" @click="logout">
+        Logout
+      </button>
+    </section>
 
     <div v-if="cuisineSheetOpen" class="fixed inset-0 z-[80]">
       <div class="absolute inset-0 bg-black/60" @click="cuisineSheetOpen = false" />

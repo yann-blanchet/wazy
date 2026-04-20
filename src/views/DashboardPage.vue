@@ -24,6 +24,8 @@ const serverPreviewState = ref<'idle' | 'loading' | 'loaded' | 'missing'>('idle'
 
 const restaurantName = ref<string>('')
 const restaurantAddress = ref<string>('')
+const restaurantCity = ref<string>('')
+const restaurantCuisineType = ref<string>('')
 
 const viewerOpen = ref<boolean>(false)
 const viewerUrl = ref<string>('')
@@ -59,16 +61,20 @@ onMounted(async () => {
 
   try {
     if (auth.key) {
-      const res = await apiFetch<{ restaurant: { name: string; address: string } }>('/api/restaurant', {
+      const res = await apiFetch<{ restaurant: { name: string; address: string; city?: string; cuisineType?: string } }>('/api/restaurant', {
         method: 'GET',
         key: auth.key
       })
       restaurantName.value = res.restaurant.name ?? ''
       restaurantAddress.value = res.restaurant.address ?? ''
+      restaurantCity.value = res.restaurant.city ?? ''
+      restaurantCuisineType.value = res.restaurant.cuisineType ?? ''
     }
   } catch {
     restaurantName.value = ''
     restaurantAddress.value = ''
+    restaurantCity.value = ''
+    restaurantCuisineType.value = ''
   }
 
   refreshServerPreview()
@@ -135,14 +141,6 @@ async function onTakePhotoChange(e: Event) {
   <main class="mx-auto max-w-lg p-6 pb-28">
     <div class="flex items-center justify-between">
       <h1 class="text-2xl font-semibold">WAZY</h1>
-      <div class="flex items-center gap-4">
-        <button class="text-sm text-slate-300 underline" @click="router.push('/history')">
-          History
-        </button>
-        <button class="text-sm text-slate-300 underline" @click="router.push('/settings')">
-          Settings
-        </button>
-      </div>
     </div>
 
     <div class="mt-6 grid gap-4">
@@ -152,7 +150,6 @@ async function onTakePhotoChange(e: Event) {
           <div class="grid gap-1">
             <div class="text-xs uppercase tracking-wide text-slate-400">Restaurant</div>
             <div class="text-sm font-medium text-slate-200">{{ restaurantName || auth.id || '—' }}</div>
-            <div v-if="restaurantAddress" class="text-xs text-slate-400">{{ restaurantAddress }}</div>
           </div>
           <div class="grid justify-items-end gap-1 text-right">
             <div class="text-xs uppercase tracking-wide text-slate-400">Aujourdh'hui</div>
@@ -184,7 +181,7 @@ async function onTakePhotoChange(e: Event) {
       
     </div>
 
-    <label class="fixed bottom-6 left-1/2 z-50 -translate-x-1/2">
+    <label class="fixed bottom-24 left-1/2 z-50 -translate-x-1/2">
       <input
         class="hidden"
         type="file"

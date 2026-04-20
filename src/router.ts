@@ -8,11 +8,15 @@ import PublicRestaurantPage from './views/PublicRestaurantPage.vue'
 import HistoryPage from './views/HistoryPage.vue'
 import EnhancePage from './views/EnhancePage.vue'
 import OnboardingPage from './views/OnboardingPage.vue'
+import RestaurantPage from './views/RestaurantPage.vue'
+import SharePage from './views/SharePage.vue'
 
 export const routes: RouteRecordRaw[] = [
   { path: '/', name: 'home', component: HomePage },
   { path: '/login', name: 'login', component: LoginPage },
   { path: '/dashboard', name: 'dashboard', component: DashboardPage },
+  { path: '/restaurant', name: 'restaurant', component: RestaurantPage },
+  { path: '/share', name: 'share', component: SharePage },
   { path: '/enhance', name: 'enhance', component: EnhancePage },
   { path: '/history', name: 'history', component: HistoryPage },
   { path: '/onboarding', name: 'onboarding', component: OnboardingPage },

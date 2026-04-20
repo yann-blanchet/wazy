@@ -7,7 +7,7 @@ const route = useRoute()
 const id = computed(() => String(route.params.id || ''))
 
 type PublicRes = {
-  restaurant: { id: string; name: string; address: string; phone: string }
+  restaurant: { id: string; name: string; address: string; city?: string; phone: string; cuisineType?: string }
   menus: { date: string }[]
 }
 
@@ -61,10 +61,12 @@ function upsertJsonLd() {
     name: r.name,
     url: publicPageUrl.value,
     telephone: r.phone || undefined,
+    servesCuisine: r.cuisineType || undefined,
     address: r.address
       ? {
           '@type': 'PostalAddress',
-          streetAddress: r.address
+          streetAddress: r.address,
+          addressLocality: r.city || undefined
         }
       : undefined
   }
@@ -107,7 +109,9 @@ onUnmounted(() => {
       <div class="mt-5 grid gap-1 text-sm text-slate-300">
         <div>Name: {{ data?.restaurant.name || '—' }}</div>
         <div>Address: {{ data?.restaurant.address || '—' }}</div>
+        <div>City: {{ data?.restaurant.city || '—' }}</div>
         <div>Phone: {{ data?.restaurant.phone || '—' }}</div>
+        <div>Type de cuisine: {{ data?.restaurant.cuisineType || '—' }}</div>
       </div>
 
       <div class="mt-6">

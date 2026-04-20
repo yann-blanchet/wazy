@@ -2,12 +2,9 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
-import { renderEnhanced, type EnhanceOps } from '../lib/enhance'
-import EnhanceBottomSheet from '../components/EnhanceBottomSheet.vue'
+import { useEnhanceSessionStore } from '../stores/enhanceSession'
 import {
-  enqueueUpload,
   flushUploadQueue,
-  newUploadId,
   todayISO,
   removeQueuedByDate,
   uploadQueueCount
@@ -17,6 +14,7 @@ import { apiFetch } from '../lib/api'
 const router = useRouter()
 
 const auth = useAuthStore()
+const enhanceSession = useEnhanceSessionStore()
 const status = ref<string>('')
 const queued = ref<number>(0)
 const previewUrl = ref<string>('')
@@ -24,48 +22,18 @@ const selectedDate = ref<string>(todayISO())
 const serverPreviewUrl = ref<string>('')
 const serverPreviewState = ref<'idle' | 'loading' | 'loaded' | 'missing'>('idle')
 
-const enhanceOpen = ref<boolean>(false)
-const enhanceBusy = ref<boolean>(false)
-const pendingFile = ref<File | null>(null)
-const originalUrl = ref<string>('')
-const enhancedUrl = ref<string>('')
-const originalBlob = ref<Blob | null>(null)
-const enhancedBlob = ref<Blob | null>(null)
-const ops = ref<EnhanceOps>({
-  autobalance: false,
-  autocrop: false,
-  shadowremoval: false,
-  sharpen: false
-})
+const viewerOpen = ref<boolean>(false)
+const viewerUrl = ref<string>('')
 
-async function onEnhanceOpsChange(next: EnhanceOps) {
-  ops.value = next
-  await recomputeEnhance()
+function openViewer(url: string) {
+  if (!url) return
+  viewerUrl.value = url
+  viewerOpen.value = true
 }
 
-function setPreviewFromBlob(blob: Blob) {
-  if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
-  previewUrl.value = URL.createObjectURL(blob)
-}
-
-function setEnhancePreviews(o: Blob, e: Blob) {
-  if (originalUrl.value) URL.revokeObjectURL(originalUrl.value)
-  if (enhancedUrl.value) URL.revokeObjectURL(enhancedUrl.value)
-  originalUrl.value = URL.createObjectURL(o)
-  enhancedUrl.value = URL.createObjectURL(e)
-}
-
-async function recomputeEnhance() {
-  if (!pendingFile.value) return
-  enhanceBusy.value = true
-  try {
-    const res = await renderEnhanced(pendingFile.value, ops.value)
-    originalBlob.value = res.original.blob
-    enhancedBlob.value = res.enhanced.blob
-    setEnhancePreviews(res.original.blob, res.enhanced.blob)
-  } finally {
-    enhanceBusy.value = false
-  }
+function closeViewer() {
+  viewerOpen.value = false
+  viewerUrl.value = ''
 }
 
 async function refreshQueued() {
@@ -139,56 +107,10 @@ async function onTakePhotoChange(e: Event) {
   const file = input.files?.[0]
   if (!file) return
 
-  pendingFile.value = file
-  enhanceOpen.value = true
-  ops.value = { autobalance: false, autocrop: false, shadowremoval: false, sharpen: false }
-  try {
-    await recomputeEnhance()
-  } catch (err) {
-    status.value = err instanceof Error ? err.message : 'enhance_error'
-    enhanceOpen.value = false
-  }
+  enhanceSession.start(file, selectedDate.value)
+  await router.push('/enhance')
 
   input.value = ''
-}
-
-async function confirmUpload(useEnhanced: boolean) {
-  try {
-    if (!auth.key) throw new Error('missing_auth')
-
-    const blob = useEnhanced ? enhancedBlob.value : originalBlob.value
-    if (!blob) throw new Error('missing_image')
-
-    setPreviewFromBlob(blob)
-    enhanceOpen.value = false
-    status.value = 'Saving offline…'
-
-    await enqueueUpload({
-      id: newUploadId(),
-      createdAt: Date.now(),
-      authKey: auth.key,
-      date: selectedDate.value,
-      contentType: 'image/jpeg',
-      blob
-    })
-
-    await refreshQueued()
-
-    if (navigator.onLine) {
-      status.value = 'Uploading…'
-      await flush()
-      refreshServerPreview()
-    } else {
-      status.value = 'Saved. Will upload when back online.'
-    }
-  } catch (err) {
-    status.value = err instanceof Error ? err.message : 'upload_error'
-  }
-}
-
-function closeEnhance() {
-  enhanceOpen.value = false
-  pendingFile.value = null
 }
 </script>
 
@@ -208,14 +130,10 @@ function closeEnhance() {
 
     <div class="mt-6 grid gap-4">
 
-      <label class="grid gap-2 rounded-xl bg-white/5 p-4">
-        <input
-          v-model="selectedDate"
-          type="date"
-          class="rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm outline-none focus:border-emerald-400/60"
-          @change="refreshServerPreview"
-        />
-      </label>
+      <div class="grid gap-1 rounded-xl bg-white/5 p-4">
+        <div class="text-xs uppercase tracking-wide text-slate-400">Aujourdh'hui</div>
+        <div class="font-mono text-sm text-slate-200">{{ selectedDate }}</div>
+      </div>
 
       <div v-if="serverPreviewUrl" class="overflow-hidden rounded-2xl bg-black/30">
         <img
@@ -225,6 +143,7 @@ function closeEnhance() {
           alt="Existing menu photo"
           @load="serverPreviewState = 'loaded'"
           @error="serverPreviewState = 'missing'"
+          @click="openViewer(serverPreviewUrl)"
         />
         <div v-if="serverPreviewState === 'loading'" class="p-4 text-sm text-slate-400">Loading…</div>
         <div v-else-if="serverPreviewState === 'missing'" class="p-4 text-sm text-slate-400">
@@ -233,7 +152,7 @@ function closeEnhance() {
       </div>
 
       <div v-if="previewUrl" class="overflow-hidden rounded-2xl bg-black/30">
-        <img class="w-full object-cover" :src="previewUrl" alt="Selected menu photo" />
+        <img class="w-full object-cover" :src="previewUrl" alt="Selected menu photo" @click="openViewer(previewUrl)" />
       </div>
 
       <button
@@ -282,16 +201,22 @@ function closeEnhance() {
       </span>
     </label>
 
-    <EnhanceBottomSheet
-      :open="enhanceOpen"
-      :busy="enhanceBusy"
-      :original-url="originalUrl"
-      :enhanced-url="enhancedUrl"
-      :ops="ops"
-      @close="closeEnhance"
-      @change-ops="onEnhanceOpsChange"
-      @use-original="confirmUpload(false)"
-      @use-enhanced="confirmUpload(true)"
-    />
+    <div v-if="viewerOpen" class="fixed inset-0 z-[70] bg-black">
+      <img class="absolute inset-0 h-full w-full object-contain" :src="viewerUrl" alt="Full screen menu" />
+
+      <div
+        class="absolute bottom-0 left-0 right-0 flex items-center justify-between gap-3 border-t border-white/10 bg-black/60 px-5 py-4"
+        style="padding-bottom: max(env(safe-area-inset-bottom), 16px)"
+      >
+        <button class="rounded-full bg-white/10 px-4 py-2 text-sm text-slate-100" @click="closeViewer">
+          Close
+        </button>
+
+        <button class="rounded-full bg-rose-500/20 px-4 py-2 text-sm text-rose-100" @click="deleteMenuForDate; closeViewer()">
+          Delete
+        </button>
+      </div>
+    </div>
+
   </main>
 </template>

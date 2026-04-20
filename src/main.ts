@@ -18,7 +18,7 @@ const router = createRouter({
 const pinia = createPinia()
 
 router.beforeEach((to) => {
-  if (to.path === '/dashboard' || to.path === '/settings' || to.path === '/history') {
+  if (to.path === '/dashboard' || to.path === '/settings' || to.path === '/history' || to.path === '/enhance') {
     const auth = useAuthStore(pinia)
     if (!auth.isAuthed) return { path: '/login' }
   }

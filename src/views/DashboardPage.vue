@@ -22,6 +22,9 @@ const selectedDate = ref<string>(todayISO())
 const serverPreviewUrl = ref<string>('')
 const serverPreviewState = ref<'idle' | 'loading' | 'loaded' | 'missing'>('idle')
 
+const restaurantName = ref<string>('')
+const restaurantAddress = ref<string>('')
+
 const viewerOpen = ref<boolean>(false)
 const viewerUrl = ref<string>('')
 
@@ -53,6 +56,20 @@ async function flush() {
 onMounted(async () => {
   await refreshQueued()
   if (navigator.onLine) await flush()
+
+  try {
+    if (auth.key) {
+      const res = await apiFetch<{ restaurant: { name: string; address: string } }>('/api/restaurant', {
+        method: 'GET',
+        key: auth.key
+      })
+      restaurantName.value = res.restaurant.name ?? ''
+      restaurantAddress.value = res.restaurant.address ?? ''
+    }
+  } catch {
+    restaurantName.value = ''
+    restaurantAddress.value = ''
+  }
 
   refreshServerPreview()
 })
@@ -131,8 +148,17 @@ async function onTakePhotoChange(e: Event) {
     <div class="mt-6 grid gap-4">
 
       <div class="grid gap-1 rounded-xl bg-white/5 p-4">
-        <div class="text-xs uppercase tracking-wide text-slate-400">Aujourdh'hui</div>
-        <div class="font-mono text-sm text-slate-200">{{ selectedDate }}</div>
+        <div class="flex items-start justify-between gap-4">
+          <div class="grid gap-1">
+            <div class="text-xs uppercase tracking-wide text-slate-400">Restaurant</div>
+            <div class="text-sm font-medium text-slate-200">{{ restaurantName || auth.id || '—' }}</div>
+            <div v-if="restaurantAddress" class="text-xs text-slate-400">{{ restaurantAddress }}</div>
+          </div>
+          <div class="grid justify-items-end gap-1 text-right">
+            <div class="text-xs uppercase tracking-wide text-slate-400">Aujourdh'hui</div>
+            <div class="font-mono text-sm text-slate-200">{{ selectedDate }}</div>
+          </div>
+        </div>
       </div>
 
       <div v-if="serverPreviewUrl" class="overflow-hidden rounded-2xl bg-black/30">
@@ -147,7 +173,7 @@ async function onTakePhotoChange(e: Event) {
         />
         <div v-if="serverPreviewState === 'loading'" class="p-4 text-sm text-slate-400">Loading…</div>
         <div v-else-if="serverPreviewState === 'missing'" class="p-4 text-sm text-slate-400">
-          No uploaded photo for this date yet.
+          Pas de menu pour aujourd'hui, cliquez sur l'icône caméra pour en prendre un.
         </div>
       </div>
 
@@ -155,13 +181,7 @@ async function onTakePhotoChange(e: Event) {
         <img class="w-full object-cover" :src="previewUrl" alt="Selected menu photo" @click="openViewer(previewUrl)" />
       </div>
 
-      <button
-        class="rounded-xl bg-rose-500/15 px-4 py-3 text-sm font-medium text-rose-200 hover:bg-rose-500/20"
-        @click="deleteMenuForDate"
-      >
-        Delete menu for selected date
-      </button>
-
+      
     </div>
 
     <label class="fixed bottom-6 left-1/2 z-50 -translate-x-1/2">
@@ -212,7 +232,7 @@ async function onTakePhotoChange(e: Event) {
           Close
         </button>
 
-        <button class="rounded-full bg-rose-500/20 px-4 py-2 text-sm text-rose-100" @click="deleteMenuForDate; closeViewer()">
+        <button class="rounded-full bg-rose-500/20 px-4 py-2 text-sm text-rose-100" @click="deleteMenuForDate(); closeViewer()">
           Delete
         </button>
       </div>

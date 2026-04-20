@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { apiFetch } from '../lib/api'
 
@@ -26,6 +26,11 @@ const todayImgUrl = computed(() => {
   return `${apiFetchBase()}/api/public/${id.value}/menu/${todayDate.value}`
 })
 
+const publicPageUrl = computed(() => {
+  if (!id.value) return ''
+  return `${window.location.origin}/r/${id.value}`
+})
+
 function apiFetchBase() {
   const v = import.meta.env.VITE_API_BASE
   const base = typeof v === 'string' && v.length > 0 ? v : 'https://vazy.instant-report.workers.dev'
@@ -44,6 +49,44 @@ async function load() {
 
 onMounted(load)
 watch(id, load)
+
+function upsertJsonLd() {
+  if (typeof document === 'undefined') return
+  const r = data.value?.restaurant
+  if (!r || !r.name) return
+
+  const payload = {
+    '@context': 'https://schema.org',
+    '@type': 'Restaurant',
+    name: r.name,
+    url: publicPageUrl.value,
+    telephone: r.phone || undefined,
+    address: r.address
+      ? {
+          '@type': 'PostalAddress',
+          streetAddress: r.address
+        }
+      : undefined
+  }
+
+  const idAttr = 'restaurant-jsonld'
+  let el = document.getElementById(idAttr) as HTMLScriptElement | null
+  if (!el) {
+    el = document.createElement('script')
+    el.type = 'application/ld+json'
+    el.id = idAttr
+    document.head.appendChild(el)
+  }
+  el.text = JSON.stringify(payload)
+}
+
+watch([data, id], () => upsertJsonLd(), { deep: true })
+
+onUnmounted(() => {
+  if (typeof document === 'undefined') return
+  const el = document.getElementById('restaurant-jsonld')
+  el?.remove()
+})
 </script>
 
 <template>

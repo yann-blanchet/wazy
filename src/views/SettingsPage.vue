@@ -72,6 +72,23 @@ const workerLoginUrl = computed(() => {
   return u.toString()
 })
 
+const publicPageUrl = computed(() => {
+  if (!auth.id) return ''
+  const u = new URL(window.location.origin)
+  u.pathname = `/r/${auth.id}`
+  return u.toString()
+})
+
+async function copyPublicLink() {
+  if (!publicPageUrl.value) return
+  await navigator.clipboard.writeText(publicPageUrl.value)
+}
+
+function openPublicLink() {
+  if (!publicPageUrl.value) return
+  window.open(publicPageUrl.value, '_blank')
+}
+
 const qrDataUrl = ref<string>('')
 
 async function refreshQr() {
@@ -158,6 +175,24 @@ async function logout() {
         </button>
 
         <div v-if="profileStatus" class="text-sm text-slate-300">{{ profileStatus }}</div>
+      </div>
+    </section>
+
+    <section class="mt-6 rounded-2xl bg-white/5 p-5">
+      <h2 class="text-lg font-semibold">Public link</h2>
+      <p class="mt-1 text-sm text-slate-300">Share with customers.</p>
+
+      <div v-if="publicPageUrl" class="mt-4 break-all rounded-xl bg-black/30 p-3 font-mono text-xs text-slate-300">
+        {{ publicPageUrl }}
+      </div>
+
+      <div class="mt-4 grid grid-cols-2 gap-2">
+        <button class="rounded-xl bg-white/10 px-4 py-3 text-sm hover:bg-white/15" :disabled="!publicPageUrl" @click="copyPublicLink">
+          Copy
+        </button>
+        <button class="rounded-xl bg-white/10 px-4 py-3 text-sm hover:bg-white/15" :disabled="!publicPageUrl" @click="openPublicLink">
+          Open
+        </button>
       </div>
     </section>
 

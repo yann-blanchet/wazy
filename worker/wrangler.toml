@@ -3,6 +3,11 @@ main = "src/index.ts"
 compatibility_date = "2026-04-16"
 
 [vars]
+APP_ORIGIN = "https://www.wazymenu.fr"
+
+[env.dev]
+
+[env.dev.vars]
 APP_ORIGIN = "http://localhost:5173"
 
 [[r2_buckets]]

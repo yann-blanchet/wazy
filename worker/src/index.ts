@@ -44,7 +44,13 @@ function json(data: unknown, init: ResponseInit = {}) {
 
 function withCors(req: Request, env: Env, res: Response) {
   const origin = req.headers.get('origin')
-  const allowOrigin = origin && origin === env.APP_ORIGIN ? origin : env.APP_ORIGIN
+  const allowed = new Set<string>([
+    env.APP_ORIGIN,
+    'https://www.wazymenu.fr',
+    'http://localhost:5173',
+    'http://127.0.0.1:5173'
+  ])
+  const allowOrigin = origin && allowed.has(origin) ? origin : env.APP_ORIGIN
 
   const headers = new Headers(res.headers)
   headers.set('access-control-allow-origin', allowOrigin)

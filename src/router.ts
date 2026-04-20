@@ -7,6 +7,7 @@ import SettingsPage from './views/SettingsPage.vue'
 import PublicRestaurantPage from './views/PublicRestaurantPage.vue'
 import HistoryPage from './views/HistoryPage.vue'
 import EnhancePage from './views/EnhancePage.vue'
+import OnboardingPage from './views/OnboardingPage.vue'
 
 export const routes: RouteRecordRaw[] = [
   { path: '/', name: 'home', component: HomePage },
@@ -14,6 +15,7 @@ export const routes: RouteRecordRaw[] = [
   { path: '/dashboard', name: 'dashboard', component: DashboardPage },
   { path: '/enhance', name: 'enhance', component: EnhancePage },
   { path: '/history', name: 'history', component: HistoryPage },
+  { path: '/onboarding', name: 'onboarding', component: OnboardingPage },
   { path: '/settings', name: 'settings', component: SettingsPage },
   { path: '/r/:id', name: 'public', component: PublicRestaurantPage }
 ]

@@ -19,6 +19,14 @@ watchEffect(() => {
 
 const masterKeyShown = ref<string | null>(null)
 
+async function useMasterKeyToLogin() {
+  if (!masterKeyShown.value) return
+  key.value = masterKeyShown.value
+  masterKeyShown.value = null
+  await auth.loginWithKey(key.value)
+  await router.push({ path: '/onboarding' })
+}
+
 async function createAccount() {
   createError.value = ''
   try {
@@ -70,7 +78,7 @@ async function login() {
         <div class="mt-2 break-all font-mono text-sm">{{ masterKeyShown }}</div>
         <button
           class="mt-3 rounded-lg bg-white/10 px-3 py-2 text-sm hover:bg-white/15"
-          @click="key = masterKeyShown; masterKeyShown = null"
+          @click="useMasterKeyToLogin"
         >
           Use this key to login
         </button>

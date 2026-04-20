@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import QRCode from 'qrcode'
 import { apiFetch } from '../lib/api'
 
 const router = useRouter()
+const route = useRoute()
 
 const auth = useAuthStore()
 
@@ -14,6 +16,9 @@ const name = ref<string>('')
 const address = ref<string>('')
 const phone = ref<string>('')
 const profileStatus = ref<string>('')
+
+const onboarding = computed(() => route.query.onboarding === '1')
+const nameInputEl = ref<HTMLInputElement | null>(null)
 
 onMounted(async () => {
   try {
@@ -30,6 +35,10 @@ onMounted(async () => {
     name.value = res.restaurant.name ?? ''
     address.value = res.restaurant.address ?? ''
     phone.value = res.restaurant.phone ?? ''
+
+    if (onboarding.value) {
+      queueMicrotask(() => nameInputEl.value?.focus())
+    }
   } catch (e) {
     profileStatus.value = e instanceof Error ? e.message : 'load_error'
   }
@@ -109,12 +118,14 @@ async function logout() {
     <section class="mt-6 rounded-2xl bg-white/5 p-5">
       <h2 class="text-lg font-semibold">Restaurant</h2>
       <p class="mt-1 text-sm text-slate-300">Shown on the public page.</p>
+      <p v-if="onboarding" class="mt-2 text-sm text-slate-200">Set your restaurant name, address and phone.</p>
 
       <div class="mt-4 grid gap-3">
         <label class="grid gap-2">
           <span class="text-sm text-slate-300">Name</span>
           <input
             v-model="name"
+            ref="nameInputEl"
             class="rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm outline-none focus:border-emerald-400/60"
             autocomplete="organization"
           />

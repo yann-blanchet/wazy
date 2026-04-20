@@ -9,6 +9,8 @@ const id = computed(() => String(route.params.id || ''))
 type PublicRes = {
   restaurant: { id: string; name: string; address: string; city?: string; phone: string; cuisineType?: string }
   menus: { date: string }[]
+  permanentMenu?: { updatedAt: number } | null
+  permanentMenus?: { id: string; createdAt: number }[]
 }
 
 const data = ref<PublicRes | null>(null)
@@ -25,6 +27,14 @@ const todayImgUrl = computed(() => {
   if (!id.value || !todayDate.value) return ''
   return `${apiFetchBase()}/api/public/${id.value}/menu/${todayDate.value}`
 })
+
+const permanentMenus = computed(() => data.value?.permanentMenus ?? [])
+
+function permanentMenuItemUrl(pid: string, t?: number) {
+  if (!id.value) return ''
+  const q = typeof t === 'number' && t > 0 ? `?t=${t}` : ''
+  return `${apiFetchBase()}/api/public/${id.value}/permanent-menu/${pid}${q}`
+}
 
 const publicPageUrl = computed(() => {
   if (!id.value) return ''
@@ -104,6 +114,22 @@ onUnmounted(() => {
       <div class="mt-4 aspect-[4/5] overflow-hidden rounded-2xl bg-black/30">
         <img v-if="todayImgUrl" class="h-full w-full object-cover" :src="todayImgUrl" alt="Today's menu" />
         <div v-else class="flex h-full items-center justify-center text-sm text-slate-400">No menu yet</div>
+      </div>
+
+      <div v-if="permanentMenus.length > 0" class="mt-6">
+        <div class="text-sm font-medium text-slate-200">Permanent menu</div>
+        <div class="mt-3 grid grid-cols-2 gap-2">
+          <a
+            v-for="m in permanentMenus"
+            :key="m.id"
+            class="aspect-[4/5] overflow-hidden rounded-2xl bg-black/30"
+            :href="permanentMenuItemUrl(m.id, m.createdAt)"
+            target="_blank"
+            rel="noreferrer"
+          >
+            <img class="h-full w-full object-cover" :src="permanentMenuItemUrl(m.id, m.createdAt)" :alt="m.id" />
+          </a>
+        </div>
       </div>
 
       <div class="mt-5 grid gap-1 text-sm text-slate-300">

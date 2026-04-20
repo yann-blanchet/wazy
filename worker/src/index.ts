@@ -4,6 +4,13 @@ export interface Env {
   RESTAURANTS: KVNamespace
 }
 
+function normalizeRestaurantPhotos(rec: RestaurantRecord): RestaurantPhotoItem[] {
+  const anyRec = rec as unknown as { photos?: RestaurantPhotoItem[] }
+  if (Array.isArray(anyRec.photos)) return anyRec.photos
+  ;(rec as unknown as { photos?: RestaurantPhotoItem[] }).photos = []
+  return []
+}
+
 type Role = 'master' | 'worker'
 
 type RestaurantPublic = {
@@ -21,12 +28,51 @@ type MenuItem = {
   createdAt: number
 }
 
+type PermanentMenu = {
+  objectKey: string
+  updatedAt: number
+}
+
+type PermanentMenuItem = {
+  id: string
+  objectKey: string
+  createdAt: number
+}
+
+type RestaurantPhotoItem = {
+  id: string
+  objectKey: string
+  createdAt: number
+}
+
 type RestaurantRecord = {
   id: string
   workerKey: string
   masterKey: string
   public: RestaurantPublic
   menus: MenuItem[]
+  permanentMenu?: PermanentMenu
+  permanentMenus?: PermanentMenuItem[]
+  photos?: RestaurantPhotoItem[]
+}
+
+function normalizePermanentMenus(rec: RestaurantRecord): PermanentMenuItem[] {
+  const anyRec = rec as unknown as { permanentMenus?: PermanentMenuItem[]; permanentMenu?: PermanentMenu }
+  if (Array.isArray(anyRec.permanentMenus)) return anyRec.permanentMenus
+  if (anyRec.permanentMenu?.objectKey) {
+    const migrated: PermanentMenuItem[] = [
+      {
+        id: 'legacy',
+        objectKey: anyRec.permanentMenu.objectKey,
+        createdAt: anyRec.permanentMenu.updatedAt
+      }
+    ]
+    ;(rec as unknown as { permanentMenus?: PermanentMenuItem[] }).permanentMenus = migrated
+    ;(rec as unknown as { permanentMenu?: PermanentMenu }).permanentMenu = undefined
+    return migrated
+  }
+  ;(rec as unknown as { permanentMenus?: PermanentMenuItem[] }).permanentMenus = []
+  return []
 }
 
 type KeyIndexRecord = {
@@ -201,7 +247,10 @@ async function handle(req: Request, env: Env): Promise<Response> {
         phone: '',
         cuisineType: ''
       },
-      menus: []
+      menus: [],
+      permanentMenu: undefined,
+      permanentMenus: [],
+      photos: []
     }
 
     await putRestaurant(env, rec)
@@ -324,6 +373,68 @@ async function handle(req: Request, env: Env): Promise<Response> {
     return json({ objectKey, uploadUrl })
   }
 
+  if (url.pathname === '/api/permanent-menu/presign-upload' && req.method === 'POST') {
+    const key = parseAuthKeyFromHeader(req)
+    if (!key) return json({ error: 'missing_auth' }, { status: 401 })
+
+    const auth = await authRestaurant(env, key)
+    if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
+
+    const body = await readJson<{ contentType?: string }>(req)
+
+    const pid = randomId(12)
+    const objectKey = `permanent/${auth.rec.id}/${pid}.jpg`
+
+    const presignFn = (env.PRIVATE_MENUS as unknown as { createPresignedUrl?: Function }).createPresignedUrl
+    const uploadUrl =
+      typeof presignFn === 'function'
+        ? await (presignFn as (opts: unknown) => Promise<string>)({
+            method: 'PUT',
+            key: objectKey,
+            expiresIn: 60 * 5,
+            headers: body.contentType ? { 'content-type': body.contentType } : undefined
+          })
+        : null
+
+    const items = normalizePermanentMenus(auth.rec)
+    items.unshift({ id: pid, objectKey, createdAt: Date.now() })
+    ;(auth.rec as unknown as { permanentMenus?: PermanentMenuItem[] }).permanentMenus = items.slice(0, 30)
+    await putRestaurant(env, auth.rec)
+
+    return json({ id: pid, objectKey, uploadUrl })
+  }
+
+  if (url.pathname === '/api/restaurant-photos/presign-upload' && req.method === 'POST') {
+    const key = parseAuthKeyFromHeader(req)
+    if (!key) return json({ error: 'missing_auth' }, { status: 401 })
+
+    const auth = await authRestaurant(env, key)
+    if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
+
+    const body = await readJson<{ contentType?: string }>(req)
+
+    const pid = randomId(12)
+    const objectKey = `photos/${auth.rec.id}/${pid}.jpg`
+
+    const presignFn = (env.PRIVATE_MENUS as unknown as { createPresignedUrl?: Function }).createPresignedUrl
+    const uploadUrl =
+      typeof presignFn === 'function'
+        ? await (presignFn as (opts: unknown) => Promise<string>)({
+            method: 'PUT',
+            key: objectKey,
+            expiresIn: 60 * 5,
+            headers: body.contentType ? { 'content-type': body.contentType } : undefined
+          })
+        : null
+
+    const items = normalizeRestaurantPhotos(auth.rec)
+    items.unshift({ id: pid, objectKey, createdAt: Date.now() })
+    ;(auth.rec as unknown as { photos?: RestaurantPhotoItem[] }).photos = items.slice(0, 30)
+    await putRestaurant(env, auth.rec)
+
+    return json({ id: pid, objectKey, uploadUrl })
+  }
+
   if (url.pathname === '/api/menus' && req.method === 'GET') {
     const key = parseAuthKeyFromHeader(req)
     if (!key) return json({ error: 'missing_auth' }, { status: 401 })
@@ -364,6 +475,62 @@ async function handle(req: Request, env: Env): Promise<Response> {
     return json({ ok: true, objectKey })
   }
 
+  // Proxy upload fallback (when createPresignedUrl is unavailable)
+  if (url.pathname === '/api/restaurant-photos/upload' && req.method === 'PUT') {
+    const key = parseAuthKeyFromHeader(req)
+    if (!key) return json({ error: 'missing_auth' }, { status: 401 })
+
+    const auth = await authRestaurant(env, key)
+    if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
+
+    const pid = url.searchParams.get('id')
+    if (!pid) return json({ error: 'missing_id' }, { status: 400 })
+
+    const items = normalizeRestaurantPhotos(auth.rec)
+    const item = items.find((x) => x.id === pid)
+    if (!item) return json({ error: 'unknown_id' }, { status: 400 })
+
+    const contentType = req.headers.get('content-type') ?? 'image/jpeg'
+    const body = req.body
+    if (!body) return json({ error: 'missing_body' }, { status: 400 })
+
+    await env.PRIVATE_MENUS.put(item.objectKey, body, {
+      httpMetadata: { contentType }
+    })
+
+    await putRestaurant(env, auth.rec)
+    return json({ ok: true, objectKey: item.objectKey })
+  }
+
+  // Proxy upload fallback (when createPresignedUrl is unavailable)
+  if (url.pathname === '/api/permanent-menu/upload' && req.method === 'PUT') {
+    const key = parseAuthKeyFromHeader(req)
+    if (!key) return json({ error: 'missing_auth' }, { status: 401 })
+
+    const auth = await authRestaurant(env, key)
+    if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
+
+    const pid = url.searchParams.get('id')
+    if (!pid) return json({ error: 'missing_id' }, { status: 400 })
+
+    const items = normalizePermanentMenus(auth.rec)
+    const item = items.find((x) => x.id === pid)
+    if (!item) return json({ error: 'unknown_id' }, { status: 400 })
+
+    const contentType = req.headers.get('content-type') ?? 'image/jpeg'
+    const objectKey = item.objectKey
+    const body = req.body
+    if (!body) return json({ error: 'missing_body' }, { status: 400 })
+
+    await env.PRIVATE_MENUS.put(objectKey, body, {
+      httpMetadata: { contentType }
+    })
+
+    await putRestaurant(env, auth.rec)
+
+    return json({ ok: true, objectKey })
+  }
+
   if (url.pathname === '/api/menu' && req.method === 'DELETE') {
     const key = parseAuthKeyFromHeader(req)
     if (!key) return json({ error: 'missing_auth' }, { status: 401 })
@@ -384,6 +551,50 @@ async function handle(req: Request, env: Env): Promise<Response> {
     return json({ ok: true, deleted: true })
   }
 
+  if (url.pathname === '/api/restaurant-photos' && req.method === 'DELETE') {
+    const key = parseAuthKeyFromHeader(req)
+    if (!key) return json({ error: 'missing_auth' }, { status: 401 })
+
+    const auth = await authRestaurant(env, key)
+    if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
+    if (auth.role !== 'master') return json({ error: 'forbidden' }, { status: 403 })
+
+    const pid = url.searchParams.get('id')
+    if (!pid) return json({ error: 'missing_id' }, { status: 400 })
+
+    const items = normalizeRestaurantPhotos(auth.rec)
+    const item = items.find((x) => x.id === pid)
+    if (!item) return json({ ok: true, deleted: false })
+
+    await env.PRIVATE_MENUS.delete(item.objectKey)
+    ;(auth.rec as unknown as { photos?: RestaurantPhotoItem[] }).photos = items.filter((x) => x.id !== pid)
+    await putRestaurant(env, auth.rec)
+
+    return json({ ok: true, deleted: true })
+  }
+
+  if (url.pathname === '/api/permanent-menu' && req.method === 'DELETE') {
+    const key = parseAuthKeyFromHeader(req)
+    if (!key) return json({ error: 'missing_auth' }, { status: 401 })
+
+    const auth = await authRestaurant(env, key)
+    if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
+    if (auth.role !== 'master') return json({ error: 'forbidden' }, { status: 403 })
+
+    const pid = url.searchParams.get('id')
+    if (!pid) return json({ error: 'missing_id' }, { status: 400 })
+
+    const items = normalizePermanentMenus(auth.rec)
+    const item = items.find((x) => x.id === pid)
+    if (!item) return json({ ok: true, deleted: false })
+
+    await env.PRIVATE_MENUS.delete(item.objectKey)
+    ;(auth.rec as unknown as { permanentMenus?: PermanentMenuItem[] }).permanentMenus = items.filter((x) => x.id !== pid)
+    await putRestaurant(env, auth.rec)
+
+    return json({ ok: true, deleted: true })
+  }
+
   // Public metadata for /r/:id
   const publicMatch = url.pathname.match(/^\/api\/public\/([a-z0-9]+)$/i)
   if (publicMatch && req.method === 'GET') {
@@ -391,9 +602,15 @@ async function handle(req: Request, env: Env): Promise<Response> {
     const rec = await getRestaurant(env, id)
     if (!rec) return json({ error: 'not_found' }, { status: 404 })
 
+    const permanentMenus = normalizePermanentMenus(rec)
+    const photos = normalizeRestaurantPhotos(rec)
+
     return json({
       restaurant: rec.public,
-      menus: rec.menus.slice(0, 3).map((m) => ({ date: m.date }))
+      menus: rec.menus.slice(0, 3).map((m) => ({ date: m.date })),
+      permanentMenu: null,
+      permanentMenus: permanentMenus.slice(0, 30).map((m) => ({ id: m.id, createdAt: m.createdAt })),
+      photos: photos.slice(0, 30).map((p) => ({ id: p.id, createdAt: p.createdAt }))
     })
   }
 
@@ -425,6 +642,116 @@ async function handle(req: Request, env: Env): Promise<Response> {
     }
 
     const obj = await env.PRIVATE_MENUS.get(m.objectKey)
+    if (!obj) return new Response('Not found', { status: 404 })
+
+    const headers = new Headers()
+    obj.writeHttpMetadata(headers)
+    headers.set('cache-control', 'public, max-age=60')
+
+    return new Response(obj.body, { status: 200, headers })
+  }
+
+  const photoItemMatch = url.pathname.match(/^\/api\/public\/([a-z0-9]+)\/photo\/([a-z0-9_-]+)$/i)
+  if (photoItemMatch && req.method === 'GET') {
+    const id = photoItemMatch[1]
+    const pid = photoItemMatch[2]
+    const rec = await getRestaurant(env, id)
+    if (!rec) return new Response('Not found', { status: 404 })
+
+    const photos = normalizeRestaurantPhotos(rec)
+    const item = photos.find((x) => x.id === pid)
+    if (!item) return new Response('Not found', { status: 404 })
+
+    const presignFn = (env.PRIVATE_MENUS as unknown as { createPresignedUrl?: Function }).createPresignedUrl
+    if (typeof presignFn === 'function') {
+      const signed = await (presignFn as (opts: unknown) => Promise<string>)({
+        method: 'GET',
+        key: item.objectKey,
+        expiresIn: 60
+      })
+
+      return new Response(null, {
+        status: 302,
+        headers: {
+          location: signed
+        }
+      })
+    }
+
+    const obj = await env.PRIVATE_MENUS.get(item.objectKey)
+    if (!obj) return new Response('Not found', { status: 404 })
+
+    const headers = new Headers()
+    obj.writeHttpMetadata(headers)
+    headers.set('cache-control', 'public, max-age=60')
+
+    return new Response(obj.body, { status: 200, headers })
+  }
+
+  const permItemMatch = url.pathname.match(/^\/api\/public\/([a-z0-9]+)\/permanent-menu\/([a-z0-9_-]+)$/i)
+  if (permItemMatch && req.method === 'GET') {
+    const id = permItemMatch[1]
+    const pid = permItemMatch[2]
+    const rec = await getRestaurant(env, id)
+    if (!rec) return new Response('Not found', { status: 404 })
+
+    const permanentMenus = normalizePermanentMenus(rec)
+    const item = permanentMenus.find((x) => x.id === pid)
+    if (!item) return new Response('Not found', { status: 404 })
+
+    const presignFn = (env.PRIVATE_MENUS as unknown as { createPresignedUrl?: Function }).createPresignedUrl
+    if (typeof presignFn === 'function') {
+      const signed = await (presignFn as (opts: unknown) => Promise<string>)({
+        method: 'GET',
+        key: item.objectKey,
+        expiresIn: 60
+      })
+
+      return new Response(null, {
+        status: 302,
+        headers: {
+          location: signed
+        }
+      })
+    }
+
+    const obj = await env.PRIVATE_MENUS.get(item.objectKey)
+    if (!obj) return new Response('Not found', { status: 404 })
+
+    const headers = new Headers()
+    obj.writeHttpMetadata(headers)
+    headers.set('cache-control', 'public, max-age=60')
+
+    return new Response(obj.body, { status: 200, headers })
+  }
+
+  const permMatch = url.pathname.match(/^\/api\/public\/([a-z0-9]+)\/permanent-menu$/i)
+  if (permMatch && req.method === 'GET') {
+    const id = permMatch[1]
+    const rec = await getRestaurant(env, id)
+    if (!rec) return new Response('Not found', { status: 404 })
+
+    const permanentMenus = normalizePermanentMenus(rec)
+    const objectKey = permanentMenus[0]?.objectKey
+    if (!objectKey) return new Response('Not found', { status: 404 })
+
+    const presignFn = (env.PRIVATE_MENUS as unknown as { createPresignedUrl?: Function }).createPresignedUrl
+    if (typeof presignFn === 'function') {
+      const signed = await (presignFn as (opts: unknown) => Promise<string>)({
+        method: 'GET',
+        key: objectKey,
+        expiresIn: 60
+      })
+
+      return new Response(null, {
+        status: 302,
+        headers: {
+          location: signed
+        }
+      })
+    }
+
+    const obj = await env.PRIVATE_MENUS.get(objectKey)
     if (!obj) return new Response('Not found', { status: 404 })
 
     const headers = new Headers()

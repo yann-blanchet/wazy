@@ -18,6 +18,11 @@ const profileStatus = ref<string>('')
 onMounted(async () => {
   try {
     if (!auth.key) return
+    if (auth.isMaster) {
+      const k = await apiFetch<{ workerKey: string }>('/api/keys', { method: 'GET', key: auth.key })
+      workerKey.value = k.workerKey
+      await refreshQr()
+    }
     const res = await apiFetch<{ restaurant: { name: string; address: string; phone: string } }>(
       '/api/restaurant',
       { method: 'GET', key: auth.key }
@@ -84,6 +89,11 @@ async function downloadQrPng() {
   a.href = qrDataUrl.value
   a.download = 'vazy-worker-qr.png'
   a.click()
+}
+
+async function logout() {
+  auth.logout()
+  await router.push('/login')
 }
 </script>
 
@@ -169,6 +179,15 @@ async function downloadQrPng() {
           Download QR (PNG)
         </button>
       </div>
+    </section>
+
+    <section class="mt-6 rounded-2xl bg-white/5 p-5">
+      <h2 class="text-lg font-semibold">Session</h2>
+      <p class="mt-1 text-sm text-slate-300">Sign out from this device.</p>
+
+      <button class="mt-4 w-full rounded-xl bg-white/10 px-4 py-3 hover:bg-white/15" @click="logout">
+        Logout
+      </button>
     </section>
   </main>
 </template>

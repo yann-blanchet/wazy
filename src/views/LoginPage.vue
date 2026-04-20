@@ -9,6 +9,8 @@ const auth = useAuthStore()
 
 const mode = computed(() => (route.query.mode === 'create' ? 'create' : 'login'))
 const key = ref('')
+const desiredId = ref('')
+const createError = ref('')
 
 watchEffect(() => {
   const qKey = route.query.key
@@ -18,8 +20,13 @@ watchEffect(() => {
 const masterKeyShown = ref<string | null>(null)
 
 async function createAccount() {
-  const res = await auth.createAccount()
-  masterKeyShown.value = res.masterKey
+  createError.value = ''
+  try {
+    const res = desiredId.value.trim().length > 0 ? await auth.createAccountWithId(desiredId.value) : await auth.createAccount()
+    masterKeyShown.value = res.masterKey
+  } catch (e) {
+    createError.value = e instanceof Error ? e.message : 'create_error'
+  }
 }
 
 async function login() {
@@ -35,12 +42,28 @@ async function login() {
     </h1>
 
     <div v-if="mode === 'create'" class="mt-6 grid gap-3">
+      <label class="grid gap-2">
+        <span class="text-sm text-slate-300">Choose your public id</span>
+        <input
+          v-model="desiredId"
+          class="rounded-xl border border-white/10 bg-white/5 px-3 py-3 font-mono text-sm outline-none focus:border-emerald-400/60"
+          placeholder="e.g. le-bistrot"
+          autocomplete="off"
+          autocapitalize="off"
+          spellcheck="false"
+        />
+      </label>
+
       <button
         class="rounded-xl bg-emerald-500 px-4 py-3 font-medium text-emerald-950 hover:bg-emerald-400"
         @click="createAccount"
       >
         Create → get master key
       </button>
+
+      <div v-if="createError" class="rounded-xl bg-white/10 p-4 text-sm text-slate-300">
+        {{ createError }}
+      </div>
 
       <div v-if="masterKeyShown" class="rounded-xl bg-white/10 p-4">
         <div class="text-sm text-slate-300">Master key (shown once):</div>

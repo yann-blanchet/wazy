@@ -27,6 +27,11 @@ type RestaurantRecord = {
   menus: MenuItem[]
 }
 
+type KeyIndexRecord = {
+  id: string
+  role: Role
+}
+
 function json(data: unknown, init: ResponseInit = {}) {
   return new Response(JSON.stringify(data), {
     status: init.status ?? 200,
@@ -68,14 +73,6 @@ function parseAuthKeyFromHeader(req: Request) {
   return normalizeKey(m[1])
 }
 
-function isMasterKey(key: string) {
-  return key.endsWith('-master')
-}
-
-function restaurantIdFromKey(key: string) {
-  return isMasterKey(key) ? key.replace(/-master$/, '') : key
-}
-
 function randomId(len = 10) {
   const alphabet = 'abcdefghjkmnpqrstuvwxyz23456789'
   const bytes = new Uint8Array(len)
@@ -83,6 +80,21 @@ function randomId(len = 10) {
   let out = ''
   for (let i = 0; i < len; i++) out += alphabet[bytes[i] % alphabet.length]
   return out
+}
+
+function randomKey(prefix: 'msr' | 'wkr') {
+  return `${prefix}_${randomId(26)}`
+}
+
+function isValidRestaurantId(id: string) {
+  if (id.length < 3 || id.length > 32) return false
+  return /^[a-zA-Z0-9_-]+$/.test(id)
+}
+
+async function readJsonOptional<T>(req: Request): Promise<T | null> {
+  const text = await req.text()
+  if (!text) return null
+  return JSON.parse(text) as T
 }
 
 function todayISO() {
@@ -103,14 +115,28 @@ async function putRestaurant(env: Env, rec: RestaurantRecord) {
   await env.RESTAURANTS.put(`r:${rec.id}`, JSON.stringify(rec))
 }
 
-async function authRestaurant(env: Env, key: string): Promise<{ rec: RestaurantRecord; role: Role } | null> {
-  const id = restaurantIdFromKey(key)
-  const rec = await getRestaurant(env, id)
-  if (!rec) return null
+async function getKeyIndex(env: Env, key: string): Promise<KeyIndexRecord | null> {
+  const raw = await env.RESTAURANTS.get(`k:${key}`)
+  if (!raw) return null
+  return JSON.parse(raw) as KeyIndexRecord
+}
 
-  if (key === rec.masterKey) return { rec, role: 'master' }
-  if (key === rec.workerKey) return { rec, role: 'worker' }
-  return null
+async function putKeyIndex(env: Env, key: string, rec: KeyIndexRecord) {
+  await env.RESTAURANTS.put(`k:${key}`, JSON.stringify(rec))
+}
+
+async function deleteKeyIndex(env: Env, key: string) {
+  await env.RESTAURANTS.delete(`k:${key}`)
+}
+
+async function authRestaurant(env: Env, key: string): Promise<{ rec: RestaurantRecord; role: Role } | null> {
+  const idx = await getKeyIndex(env, key)
+  if (!idx) return null
+  const rec = await getRestaurant(env, idx.id)
+  if (!rec) return null
+  if (idx.role === 'master' && key !== rec.masterKey) return null
+  if (idx.role === 'worker' && key !== rec.workerKey) return null
+  return { rec, role: idx.role }
 }
 
 async function handle(req: Request, env: Env): Promise<Response> {
@@ -119,9 +145,41 @@ async function handle(req: Request, env: Env): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204 })
 
   if (url.pathname === '/api/account/create' && req.method === 'POST') {
-    const id = randomId(10)
-    const workerKey = id
-    const masterKey = `${id}-master`
+    const body = await readJsonOptional<{ id?: string }>(req)
+
+    let id: string | null = null
+    if (body?.id !== undefined) {
+      const requested = String(body.id).trim()
+      if (!isValidRestaurantId(requested)) return json({ error: 'invalid_id' }, { status: 400 })
+      const existing = await getRestaurant(env, requested)
+      if (existing) return json({ error: 'id_taken' }, { status: 409 })
+      id = requested
+    } else {
+      for (let i = 0; i < 10; i++) {
+        const candidate = randomId(10)
+        const existing = await getRestaurant(env, candidate)
+        if (!existing) {
+          id = candidate
+          break
+        }
+      }
+      if (!id) return json({ error: 'id_generation_failed' }, { status: 500 })
+    }
+
+    let workerKey: string | null = null
+    let masterKey: string | null = null
+    for (let i = 0; i < 10; i++) {
+      const wk = randomKey('wkr')
+      const mk = randomKey('msr')
+      const wkExisting = await getKeyIndex(env, wk)
+      const mkExisting = await getKeyIndex(env, mk)
+      if (!wkExisting && !mkExisting) {
+        workerKey = wk
+        masterKey = mk
+        break
+      }
+    }
+    if (!workerKey || !masterKey) return json({ error: 'key_generation_failed' }, { status: 500 })
 
     const rec: RestaurantRecord = {
       id,
@@ -137,6 +195,9 @@ async function handle(req: Request, env: Env): Promise<Response> {
     }
 
     await putRestaurant(env, rec)
+
+    await putKeyIndex(env, masterKey, { id, role: 'master' })
+    await putKeyIndex(env, workerKey, { id, role: 'worker' })
 
     return json({ id, workerKey, masterKey })
   }
@@ -158,8 +219,33 @@ async function handle(req: Request, env: Env): Promise<Response> {
     if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
     if (auth.role !== 'master') return json({ error: 'forbidden' }, { status: 403 })
 
-    auth.rec.workerKey = auth.rec.id
+    const oldWorkerKey = auth.rec.workerKey
+    let nextWorkerKey: string | null = null
+    for (let i = 0; i < 10; i++) {
+      const candidate = randomKey('wkr')
+      const existing = await getKeyIndex(env, candidate)
+      if (!existing) {
+        nextWorkerKey = candidate
+        break
+      }
+    }
+    if (!nextWorkerKey) return json({ error: 'key_generation_failed' }, { status: 500 })
+
+    auth.rec.workerKey = nextWorkerKey
     await putRestaurant(env, auth.rec)
+    await deleteKeyIndex(env, oldWorkerKey)
+    await putKeyIndex(env, nextWorkerKey, { id: auth.rec.id, role: 'worker' })
+
+    return json({ workerKey: auth.rec.workerKey })
+  }
+
+  if (url.pathname === '/api/keys' && req.method === 'GET') {
+    const key = parseAuthKeyFromHeader(req)
+    if (!key) return json({ error: 'missing_auth' }, { status: 401 })
+
+    const auth = await authRestaurant(env, key)
+    if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
+    if (auth.role !== 'master') return json({ error: 'forbidden' }, { status: 403 })
 
     return json({ workerKey: auth.rec.workerKey })
   }

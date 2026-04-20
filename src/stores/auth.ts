@@ -61,6 +61,14 @@ export const useAuthStore = defineStore('auth', {
       )
       return res
     },
+
+    async createAccountWithId(id: string) {
+      const res = await apiFetch<{ id: string; workerKey: string; masterKey: string }>(
+        '/api/account/create',
+        { method: 'POST', body: { id } }
+      )
+      return res
+    },
     async regenerateWorkerKey() {
       if (!this.key) throw new Error('missing_auth')
       const res = await apiFetch<{ workerKey: string }>('/api/worker/regenerate', {

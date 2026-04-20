@@ -11,9 +11,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg'],
       manifest: {
-        name: 'Vazy',
-        short_name: 'Vazy',
-        theme_color: '#0f172a',
+        name: 'Wazy',
+        short_name: 'Wazy',
+        theme_color: '#50b04e',
         background_color: '#0f172a',
         display: 'standalone',
         icons: [

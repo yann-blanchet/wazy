@@ -140,7 +140,7 @@ async function onTakePhotoChange(e: Event) {
 <template>
   <main class="mx-auto max-w-lg p-6 pb-28">
     <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-semibold">WAZY</h1>
+      <h1 class="text-2xl font-bold">WAZY</h1>
     </div>
 
     <div class="mt-6 grid gap-4">
@@ -157,6 +157,15 @@ async function onTakePhotoChange(e: Event) {
           </div>
         </div>
       </div>
+
+      <button
+        class="grid gap-1 rounded-xl bg-black/5 p-4 text-left hover:bg-black/10"
+        type="button"
+        @click="router.push('/history')"
+      >
+        <div class="text-xs uppercase tracking-wide text-bordeaux/70">Historique</div>
+        <div class="text-sm font-medium text-bordeaux">Voir les menus précédents</div>
+      </button>
 
       <div v-if="serverPreviewUrl" class="overflow-hidden rounded-2xl bg-black/10">
         <img

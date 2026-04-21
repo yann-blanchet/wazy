@@ -51,7 +51,7 @@ async function login() {
 
     <div v-if="mode === 'create'" class="mt-6 grid gap-3">
       <label class="grid gap-2">
-        <span class="text-sm text-slate-300">Choose your public id</span>
+        <span class="text-sm text-bordeaux/70">Choose your public id</span>
         <input
           v-model="desiredId"
           class="rounded-xl border border-white/10 bg-white/5 px-3 py-3 font-mono text-sm outline-none focus:border-emerald-400/60"
@@ -69,15 +69,15 @@ async function login() {
         Create → get master key
       </button>
 
-      <div v-if="createError" class="rounded-xl bg-white/10 p-4 text-sm text-slate-300">
+      <div v-if="createError" class="rounded-xl bg-black/10 p-4 text-sm text-bordeaux/70">
         {{ createError }}
       </div>
 
-      <div v-if="masterKeyShown" class="rounded-xl bg-white/10 p-4">
-        <div class="text-sm text-slate-300">Master key (shown once):</div>
+      <div v-if="masterKeyShown" class="rounded-xl bg-black/10 p-4">
+        <div class="text-sm text-bordeaux/70">Master key (shown once):</div>
         <div class="mt-2 break-all font-mono text-sm">{{ masterKeyShown }}</div>
         <button
-          class="mt-3 rounded-lg bg-white/10 px-3 py-2 text-sm hover:bg-white/15"
+          class="mt-3 rounded-lg bg-black/10 px-3 py-2 text-sm hover:bg-black/15"
           @click="useMasterKeyToLogin"
         >
           Use this key to login
@@ -87,7 +87,7 @@ async function login() {
 
     <div v-else class="mt-6 grid gap-3">
       <label class="grid gap-2">
-        <span class="text-sm text-slate-300">Key</span>
+        <span class="text-sm text-bordeaux/70">Key</span>
         <input
           v-model="key"
           class="rounded-xl border border-white/10 bg-white/5 px-3 py-3 font-mono text-sm outline-none focus:border-emerald-400/60"
@@ -99,7 +99,7 @@ async function login() {
       </label>
 
       <button
-        class="rounded-xl bg-white/10 px-4 py-3 hover:bg-white/15"
+        class="rounded-xl bg-black/10 px-4 py-3 hover:bg-black/15"
         :disabled="key.length === 0"
         @click="login"
       >
@@ -107,7 +107,7 @@ async function login() {
       </button>
     </div>
 
-    <button class="mt-8 text-sm text-slate-400 underline" @click="router.push('/')">
+    <button class="mt-8 text-sm text-bordeaux/70 underline" @click="router.push('/')">
       Back
     </button>
   </main>

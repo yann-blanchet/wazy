@@ -227,37 +227,37 @@ async function saveProfile() {
   <main class="mx-auto max-w-lg p-6 pb-28">
     <div class="text-2xl font-semibold">Restaurant</div>
 
-    <div class="mt-6 grid grid-cols-3 gap-2 rounded-2xl bg-white/5 p-1">
+    <div class="mt-6 grid grid-cols-3 gap-2 rounded-2xl bg-black/5 p-1">
       <button
         class="rounded-xl px-4 py-3 text-sm"
-        :class="tab === 'infos' ? 'bg-white/10 text-slate-100' : 'text-slate-300 hover:bg-white/5'"
+        :class="tab === 'infos' ? 'bg-black/10 text-bordeaux' : 'text-bordeaux/70 hover:bg-black/5'"
         @click="setTab('infos')"
       >
         Infos
       </button>
       <button
         class="rounded-xl px-4 py-3 text-sm"
-        :class="tab === 'carte' ? 'bg-white/10 text-slate-100' : 'text-slate-300 hover:bg-white/5'"
+        :class="tab === 'carte' ? 'bg-black/10 text-bordeaux' : 'text-bordeaux/70 hover:bg-black/5'"
         @click="setTab('carte')"
       >
         Carte
       </button>
       <button
         class="rounded-xl px-4 py-3 text-sm"
-        :class="tab === 'photos' ? 'bg-white/10 text-slate-100' : 'text-slate-300 hover:bg-white/5'"
+        :class="tab === 'photos' ? 'bg-black/10 text-bordeaux' : 'text-bordeaux/70 hover:bg-black/5'"
         @click="setTab('photos')"
       >
         Photos
       </button>
     </div>
 
-    <section v-if="tab === 'infos'" class="mt-6 rounded-2xl bg-white/5 p-5">
+    <section v-if="tab === 'infos'" class="mt-6 rounded-2xl bg-black/5 p-5">
       <h2 class="text-lg font-semibold">Infos</h2>
-      <p class="mt-1 text-sm text-slate-300">Shown on the public page.</p>
+      <p class="mt-1 text-sm text-bordeaux/70">Shown on the public page.</p>
 
       <div class="mt-4 grid gap-3">
         <label class="grid gap-2">
-          <span class="text-sm text-slate-300">Name</span>
+          <span class="text-sm text-bordeaux/70">Name</span>
           <input
             v-model="name"
             class="rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm outline-none focus:border-emerald-400/60"
@@ -266,7 +266,7 @@ async function saveProfile() {
         </label>
 
         <label class="grid gap-2">
-          <span class="text-sm text-slate-300">Address</span>
+          <span class="text-sm text-bordeaux/70">Address</span>
           <input
             v-model="address"
             class="rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm outline-none focus:border-emerald-400/60"
@@ -275,7 +275,7 @@ async function saveProfile() {
         </label>
 
         <label class="grid gap-2">
-          <span class="text-sm text-slate-300">City</span>
+          <span class="text-sm text-bordeaux/70">City</span>
           <input
             v-model="city"
             class="rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm outline-none focus:border-emerald-400/60"
@@ -284,7 +284,7 @@ async function saveProfile() {
         </label>
 
         <label class="grid gap-2">
-          <span class="text-sm text-slate-300">Phone</span>
+          <span class="text-sm text-bordeaux/70">Phone</span>
           <input
             v-model="phone"
             class="rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm outline-none focus:border-emerald-400/60"
@@ -293,7 +293,7 @@ async function saveProfile() {
         </label>
 
         <label class="grid gap-2">
-          <span class="text-sm text-slate-300">Type de cuisine</span>
+          <span class="text-sm text-bordeaux/70">Type de cuisine</span>
           <input
             v-model="cuisineType"
             class="rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm outline-none focus:border-emerald-400/60"
@@ -304,25 +304,25 @@ async function saveProfile() {
         </label>
 
         <button
-          class="rounded-xl bg-white/10 px-4 py-3 hover:bg-white/15"
+          class="rounded-xl bg-black/10 px-4 py-3 hover:bg-black/15"
           :disabled="!auth.isMaster"
           @click="saveProfile"
         >
           Save restaurant info
         </button>
 
-        <div v-if="profileStatus" class="text-sm text-slate-300">{{ profileStatus }}</div>
+        <div v-if="profileStatus" class="text-sm text-bordeaux/70">{{ profileStatus }}</div>
       </div>
     </section>
 
-    <section v-if="tab === 'photos'" class="mt-6 rounded-2xl bg-white/5 p-5">
+    <section v-if="tab === 'photos'" class="mt-6 rounded-2xl bg-black/5 p-5">
       <div class="flex items-center justify-between gap-3">
         <h2 class="text-lg font-semibold">Photos</h2>
 
         <label class="shrink-0">
           <input class="hidden" type="file" accept="image/*" @change="onPhotoPick" />
           <span
-            class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-emerald-500 hover:bg-white/15"
+            class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-black/10 text-bordeaux hover:bg-black/15"
             :class="!auth.isMaster ? 'pointer-events-none opacity-60' : ''"
             title="Ajouter une photo"
             aria-label="Ajouter une photo"
@@ -334,14 +334,14 @@ async function saveProfile() {
           </span>
         </label>
       </div>
-      <p class="mt-1 text-sm text-slate-300">Ajoutez des photos de votre restaurant (vitrine, salle, plats…).</p>
+      <p class="mt-1 text-sm text-bordeaux/70">Ajoutez des photos de votre restaurant (vitrine, salle, plats…).</p>
 
       <div class="mt-4">
-        <div v-if="restaurantPhotos.length === 0" class="rounded-xl bg-white/10 p-4 text-sm text-slate-300">
+        <div v-if="restaurantPhotos.length === 0" class="rounded-xl bg-black/10 p-4 text-sm text-bordeaux/70">
           Aucune photo pour le moment.
         </div>
         <div v-else class="grid grid-cols-1 gap-3">
-          <div v-for="p in restaurantPhotos" :key="p.id" class="overflow-hidden rounded-2xl bg-black/30">
+          <div v-for="p in restaurantPhotos" :key="p.id" class="overflow-hidden rounded-2xl bg-black/10">
             <div class="aspect-[4/5] overflow-hidden">
               <button class="block h-full w-full" type="button" @click="openViewer('photo', p.id, p.createdAt)">
                 <img class="h-full w-full object-cover" :src="restaurantPhotoItemUrl(p.id, p.createdAt)" :alt="p.id" />
@@ -352,18 +352,18 @@ async function saveProfile() {
       </div>
 
       <div class="mt-4 grid gap-3">
-        <div v-if="photosStatus" class="text-sm text-slate-300">{{ photosStatus }}</div>
+        <div v-if="photosStatus" class="text-sm text-bordeaux/70">{{ photosStatus }}</div>
       </div>
     </section>
 
-    <section v-if="tab === 'carte'" class="mt-6 rounded-2xl bg-white/5 p-5">
+    <section v-if="tab === 'carte'" class="mt-6 rounded-2xl bg-black/5 p-5">
       <div class="flex items-center justify-between gap-3">
         <h2 class="text-lg font-semibold">Carte</h2>
 
         <label class="shrink-0">
           <input class="hidden" type="file" accept="image/*" @change="onPermanentPick" />
           <span
-            class="inline-flex h-10 w-10 items-center justify-center rounded-xl text-emerald-500 bg-white/10"
+            class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-black/10 text-bordeaux hover:bg-black/15"
             :class="!auth.isMaster ? 'pointer-events-none opacity-60' : ''"
             title="Ajouter une carte permanente"
             aria-label="Ajouter une carte permanente"
@@ -375,14 +375,14 @@ async function saveProfile() {
           </span>
         </label>
       </div>
-      <p class="mt-1 text-sm text-slate-300">Toutes les cartes permanentes seront affichées ici.</p>
+      <p class="mt-1 text-sm text-bordeaux/70">Toutes les cartes permanentes seront affichées ici.</p>
 
       <div class="mt-4">
-        <div v-if="permanentMenus.length === 0" class="rounded-xl bg-white/10 p-4 text-sm text-slate-300">
+        <div v-if="permanentMenus.length === 0" class="rounded-xl bg-black/10 p-4 text-sm text-bordeaux/70">
           Aucune carte permanente pour le moment.
         </div>
         <div v-else class="grid grid-cols-1 gap-3">
-          <div v-for="m in permanentMenus" :key="m.id" class="overflow-hidden rounded-2xl bg-black/30">
+          <div v-for="m in permanentMenus" :key="m.id" class="overflow-hidden rounded-2xl bg-black/10">
             <div class="aspect-[4/5] overflow-hidden">
               <button class="block h-full w-full" type="button" @click="openViewer('carte', m.id, m.createdAt)">
                 <img class="h-full w-full object-cover" :src="permanentMenuItemUrl(m.id, m.createdAt)" :alt="m.id" />
@@ -393,7 +393,7 @@ async function saveProfile() {
       </div>
 
       <div class="mt-4 grid gap-3">
-        <div v-if="permanentStatus" class="text-sm text-slate-300">{{ permanentStatus }}</div>
+        <div v-if="permanentStatus" class="text-sm text-bordeaux/70">{{ permanentStatus }}</div>
       </div>
     </section>
 
@@ -404,18 +404,18 @@ async function saveProfile() {
       </div>
 
       <div
-        class="absolute inset-x-0 bottom-0 border-t border-white/10 bg-slate-950/95 px-5 py-4 backdrop-blur"
+        class="absolute inset-x-0 bottom-0 border-t border-black/10 bg-beige/95 px-5 py-4 backdrop-blur"
         style="padding-bottom: max(env(safe-area-inset-bottom), 16px)"
       >
         <div class="mx-auto grid max-w-lg grid-cols-2 gap-3">
           <button
-            class="rounded-xl bg-white/10 px-4 py-3 text-sm text-slate-200 hover:bg-white/15"
+            class="rounded-xl bg-black/10 px-4 py-3 text-sm text-bordeaux hover:bg-black/15"
             :disabled="!auth.isMaster"
             @click="deleteFromViewer"
           >
             Supprimer
           </button>
-          <button class="rounded-xl bg-emerald-500 px-4 py-3 text-sm font-medium text-emerald-950 hover:bg-emerald-400" @click="closeViewer">
+          <button class="rounded-xl bg-bordeaux px-4 py-3 text-sm font-medium text-beige hover:bg-bordeaux/90" @click="closeViewer">
             Fermer
           </button>
         </div>
@@ -425,19 +425,19 @@ async function saveProfile() {
     <div v-if="cuisineSheetOpen" class="fixed inset-0 z-[80]">
       <div class="absolute inset-0 bg-black/60" @click="cuisineSheetOpen = false" />
       <div
-        class="absolute bottom-0 left-0 right-0 rounded-t-3xl border-t border-white/10 bg-slate-950 px-5 py-4"
+        class="absolute bottom-0 left-0 right-0 rounded-t-3xl border-t border-black/10 bg-beige px-5 py-4"
         style="padding-bottom: max(env(safe-area-inset-bottom), 16px)"
       >
         <div class="flex items-center justify-between">
-          <div class="text-sm font-medium text-slate-200">Type de cuisine</div>
-          <button class="text-sm text-slate-300 underline" @click="cuisineSheetOpen = false">Close</button>
+          <div class="text-sm font-medium text-bordeaux">Type de cuisine</div>
+          <button class="text-sm text-bordeaux/70 underline" @click="cuisineSheetOpen = false">Close</button>
         </div>
 
         <div class="mt-4 grid grid-cols-2 gap-2">
           <button
             v-for="c in cuisineOptions"
             :key="c"
-            class="rounded-xl bg-white/5 px-4 py-3 text-sm text-slate-200 ring-1 ring-white/10 hover:bg-white/10"
+            class="rounded-xl bg-black/5 px-4 py-3 text-sm text-bordeaux ring-1 ring-black/10 hover:bg-black/10"
             @click="pickCuisine(c)"
           >
             {{ c }}

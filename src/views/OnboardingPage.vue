@@ -98,26 +98,26 @@ function pickCuisine(v: string) {
 </script>
 
 <template>
-  <main class="min-h-dvh bg-slate-950">
+  <main class="min-h-dvh bg-beige">
     <div
-      class="sticky top-0 z-10 border-b border-white/10 bg-slate-950 px-5 py-4"
+      class="sticky top-0 z-10 border-b border-black/10 bg-beige px-5 py-4"
       style="padding-top: max(env(safe-area-inset-top), 16px)"
     >
       <div class="flex items-center justify-between">
-        <div class="text-sm font-medium text-slate-200">Create your restaurant</div>
-        <button class="text-sm text-slate-300 underline" @click="skip">Skip</button>
+        <div class="text-sm font-medium text-bordeaux">Create your restaurant</div>
+        <button class="text-sm text-bordeaux/70 underline" @click="skip">Skip</button>
       </div>
     </div>
 
     <div class="mx-auto grid max-w-lg gap-4 px-5 pb-24 pt-6" style="padding-bottom: max(env(safe-area-inset-bottom), 96px)">
       <div class="grid gap-1">
-        <div class="text-base font-semibold text-slate-100">Restaurant details</div>
-        <div class="text-sm text-slate-300">Used on your public page.</div>
+        <div class="text-base font-semibold text-bordeaux">Restaurant details</div>
+        <div class="text-sm text-bordeaux/70">Used on your public page.</div>
       </div>
 
-      <div class="grid gap-3 rounded-2xl bg-white/5 p-5">
+      <div class="grid gap-3 rounded-2xl bg-black/5 p-5">
         <label class="grid gap-2">
-          <span class="text-sm text-slate-300">Name</span>
+          <span class="text-sm text-bordeaux/70">Name</span>
           <input
             v-model="name"
             ref="nameInputEl"
@@ -127,7 +127,7 @@ function pickCuisine(v: string) {
         </label>
 
         <label class="grid gap-2">
-          <span class="text-sm text-slate-300">Address</span>
+          <span class="text-sm text-bordeaux/70">Address</span>
           <input
             v-model="address"
             class="rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm outline-none focus:border-emerald-400/60"
@@ -136,7 +136,7 @@ function pickCuisine(v: string) {
         </label>
 
         <label class="grid gap-2">
-          <span class="text-sm text-slate-300">City</span>
+          <span class="text-sm text-bordeaux/70">City</span>
           <input
             v-model="city"
             class="rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm outline-none focus:border-emerald-400/60"
@@ -145,7 +145,7 @@ function pickCuisine(v: string) {
         </label>
 
         <label class="grid gap-2">
-          <span class="text-sm text-slate-300">Phone</span>
+          <span class="text-sm text-bordeaux/70">Phone</span>
           <input
             v-model="phone"
             class="rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm outline-none focus:border-emerald-400/60"
@@ -154,7 +154,7 @@ function pickCuisine(v: string) {
         </label>
 
         <label class="grid gap-2">
-          <span class="text-sm text-slate-300">Type de cuisine</span>
+          <span class="text-sm text-bordeaux/70">Type de cuisine</span>
           <input
             v-model="cuisineType"
             class="rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm outline-none focus:border-emerald-400/60"

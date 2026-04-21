@@ -18,13 +18,13 @@ const active = computed(() => route.path)
 
     <div
       v-if="showBottomNav"
-      class="fixed inset-x-0 bottom-0 z-[60] border-t border-white/10 bg-slate-950/95 px-4 py-2 backdrop-blur"
+      class="fixed inset-x-0 bottom-0 z-[60] border-t border-black/10 bg-beige/95 px-4 py-2 backdrop-blur"
       style="padding-bottom: max(env(safe-area-inset-bottom), 8px)"
     >
       <div class="mx-auto grid max-w-lg grid-cols-4 gap-2">
         <button
           class="grid justify-items-center gap-1 rounded-xl px-2 py-2 text-[11px]"
-          :class="active === '/dashboard' ? 'bg-white/10 text-slate-100' : 'text-slate-300 hover:bg-white/5'"
+          :class="active === '/dashboard' ? 'bg-black/5 text-bordeaux' : 'text-bordeaux/70 hover:bg-black/5'"
           @click="router.push('/dashboard')"
         >
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5">
@@ -35,7 +35,7 @@ const active = computed(() => route.path)
         </button>
         <button
           class="grid justify-items-center gap-1 rounded-xl px-2 py-2 text-[11px]"
-          :class="active === '/restaurant' ? 'bg-white/10 text-slate-100' : 'text-slate-300 hover:bg-white/5'"
+          :class="active === '/restaurant' ? 'bg-black/5 text-bordeaux' : 'text-bordeaux/70 hover:bg-black/5'"
           @click="router.push('/restaurant')"
         >
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5">
@@ -47,7 +47,7 @@ const active = computed(() => route.path)
         </button>
         <button
           class="grid justify-items-center gap-1 rounded-xl px-2 py-2 text-[11px]"
-          :class="active === '/share' ? 'bg-white/10 text-slate-100' : 'text-slate-300 hover:bg-white/5'"
+          :class="active === '/share' ? 'bg-black/5 text-bordeaux' : 'text-bordeaux/70 hover:bg-black/5'"
           @click="router.push('/share')"
         >
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5">
@@ -61,7 +61,7 @@ const active = computed(() => route.path)
         </button>
         <button
           class="grid justify-items-center gap-1 rounded-xl px-2 py-2 text-[11px]"
-          :class="active === '/history' ? 'bg-white/10 text-slate-100' : 'text-slate-300 hover:bg-white/5'"
+          :class="active === '/history' ? 'bg-black/5 text-bordeaux' : 'text-bordeaux/70 hover:bg-black/5'"
           @click="router.push('/history')"
         >
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5">

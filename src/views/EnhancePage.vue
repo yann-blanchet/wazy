@@ -295,16 +295,16 @@ onMounted(async () => {
 </script>
 
 <template>
-  <main class="min-h-dvh bg-slate-950">
-    <div class="sticky top-0 z-10 border-b border-white/10 bg-slate-950 px-5 py-4" style="padding-top: max(env(safe-area-inset-top), 16px)">
+  <main class="min-h-dvh bg-beige">
+    <div class="sticky top-0 z-10 border-b border-black/10 bg-beige px-5 py-4" style="padding-top: max(env(safe-area-inset-top), 16px)">
       <div class="flex items-center justify-between">
-        <div class="text-sm font-medium text-slate-200">Enhance</div>
-        <button class="text-sm text-slate-300 underline" @click="close">Close</button>
+        <div class="text-sm font-medium text-bordeaux">Enhance</div>
+        <button class="text-sm text-bordeaux/70 underline" @click="close">Close</button>
       </div>
     </div>
 
     <div class="mx-auto max-w-3xl px-5 pb-28 pt-4" style="padding-bottom: max(env(safe-area-inset-bottom), 112px)">
-      <div class="relative overflow-hidden rounded-2xl bg-black/30">
+      <div class="relative overflow-hidden rounded-2xl bg-black/10">
         <div class="aspect-[4/5] overflow-hidden">
           <img
             v-if="enhancedUrl"
@@ -339,7 +339,7 @@ onMounted(async () => {
       <div class="mt-4">
         <div class="flex items-center justify-between gap-3">
           <button
-            class="rounded-full bg-white/5 px-3 py-2 text-xs text-slate-200 ring-1 ring-white/10 hover:bg-white/10"
+            class="rounded-full bg-black/5 px-3 py-2 text-xs text-bordeaux ring-1 ring-black/10 hover:bg-black/10"
             :disabled="busy"
             @click="showAdjust = !showAdjust"
           >
@@ -444,7 +444,7 @@ onMounted(async () => {
     </div>
 
     <div
-      class="fixed inset-x-0 bottom-0 z-10 border-t border-white/10 bg-slate-950/95 px-5 py-4 backdrop-blur"
+      class="fixed inset-x-0 bottom-0 z-10 border-t border-black/10 bg-beige/95 px-5 py-4 backdrop-blur"
       style="padding-bottom: max(env(safe-area-inset-bottom), 16px)"
     >
       <div class="mx-auto grid max-w-3xl gap-3">
@@ -455,7 +455,7 @@ onMounted(async () => {
         >
           Save
         </button>
-        <div class="text-center text-xs text-slate-400" v-if="cropMode">Finish crop (Apply/Cancel) to save</div>
+        <div class="text-center text-xs text-bordeaux/70" v-if="cropMode">Finish crop (Apply/Cancel) to save</div>
       </div>
     </div>
   </main>

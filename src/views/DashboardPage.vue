@@ -145,20 +145,20 @@ async function onTakePhotoChange(e: Event) {
 
     <div class="mt-6 grid gap-4">
 
-      <div class="grid gap-1 rounded-xl bg-white/5 p-4">
+      <div class="grid gap-1 rounded-xl bg-black/5 p-4">
         <div class="flex items-start justify-between gap-4">
           <div class="grid gap-1">
-            <div class="text-xs uppercase tracking-wide text-slate-400">Restaurant</div>
-            <div class="text-sm font-medium text-slate-200">{{ restaurantName || auth.id || '—' }}</div>
+            <div class="text-xs uppercase tracking-wide text-bordeaux/70">Restaurant</div>
+            <div class="text-sm font-medium text-bordeaux">{{ restaurantName || auth.id || '—' }}</div>
           </div>
           <div class="grid justify-items-end gap-1 text-right">
-            <div class="text-xs uppercase tracking-wide text-slate-400">Aujourdh'hui</div>
-            <div class="font-mono text-sm text-slate-200">{{ selectedDate }}</div>
+            <div class="text-xs uppercase tracking-wide text-bordeaux/70">Aujourdh'hui</div>
+            <div class="font-mono text-sm text-bordeaux">{{ selectedDate }}</div>
           </div>
         </div>
       </div>
 
-      <div v-if="serverPreviewUrl" class="overflow-hidden rounded-2xl bg-black/30">
+      <div v-if="serverPreviewUrl" class="overflow-hidden rounded-2xl bg-black/10">
         <img
           v-show="serverPreviewState === 'loaded'"
           class="w-full object-cover"
@@ -168,13 +168,13 @@ async function onTakePhotoChange(e: Event) {
           @error="serverPreviewState = 'missing'"
           @click="openViewer(serverPreviewUrl)"
         />
-        <div v-if="serverPreviewState === 'loading'" class="p-4 text-sm text-slate-400">Loading…</div>
-        <div v-else-if="serverPreviewState === 'missing'" class="p-4 text-sm text-slate-400">
+        <div v-if="serverPreviewState === 'loading'" class="p-4 text-sm text-bordeaux/70">Loading…</div>
+        <div v-else-if="serverPreviewState === 'missing'" class="p-4 text-sm text-bordeaux/70">
           Pas de menu pour aujourd'hui, cliquez sur l'icône caméra pour en prendre un.
         </div>
       </div>
 
-      <div v-if="previewUrl" class="overflow-hidden rounded-2xl bg-black/30">
+      <div v-if="previewUrl" class="overflow-hidden rounded-2xl bg-black/10">
         <img class="w-full object-cover" :src="previewUrl" alt="Selected menu photo" @click="openViewer(previewUrl)" />
       </div>
 
@@ -190,7 +190,7 @@ async function onTakePhotoChange(e: Event) {
         @change="onTakePhotoChange"
       />
       <span
-        class="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500 text-emerald-950 shadow-lg shadow-black/30 ring-1 ring-white/10 hover:bg-emerald-400"
+        class="flex h-16 w-16 items-center justify-center rounded-full bg-bordeaux text-beige shadow-lg shadow-black/30 ring-1 ring-black/10 hover:bg-bordeaux/90"
       >
         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="h-7 w-7">
           <path
@@ -222,14 +222,14 @@ async function onTakePhotoChange(e: Event) {
       <img class="absolute inset-0 h-full w-full object-contain" :src="viewerUrl" alt="Full screen menu" />
 
       <div
-        class="absolute bottom-0 left-0 right-0 flex items-center justify-between gap-3 border-t border-white/10 bg-black/60 px-5 py-4"
+        class="absolute bottom-0 left-0 right-0 flex items-center justify-between gap-3 border-t border-black/10 bg-beige/95 px-5 py-4 backdrop-blur"
         style="padding-bottom: max(env(safe-area-inset-bottom), 16px)"
       >
-        <button class="rounded-full bg-white/10 px-4 py-2 text-sm text-slate-100" @click="closeViewer">
+        <button class="rounded-full bg-black/10 px-4 py-2 text-sm text-bordeaux" @click="closeViewer">
           Close
         </button>
 
-        <button class="rounded-full bg-rose-500/20 px-4 py-2 text-sm text-rose-100" @click="deleteMenuForDate(); closeViewer()">
+        <button class="rounded-full bg-rose-500/20 px-4 py-2 text-sm text-rose-950" @click="deleteMenuForDate(); closeViewer()">
           Delete
         </button>
       </div>

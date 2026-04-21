@@ -195,16 +195,16 @@ async function logout() {
   <main class="mx-auto max-w-lg p-6">
     <div class="flex items-center justify-between">
       <h1 class="text-2xl font-semibold">Settings</h1>
-      <button class="text-sm text-slate-300 underline" @click="router.push('/dashboard')">
+      <button class="text-sm text-bordeaux/70 underline" @click="router.push('/dashboard')">
         Back
       </button>
     </div>
 
-    <section class="mt-6 rounded-2xl bg-white/5 p-5">
+    <section class="mt-6 rounded-2xl bg-black/5 p-5">
       <h2 class="text-lg font-semibold">Session</h2>
-      <p class="mt-1 text-sm text-slate-300">Sign out from this device.</p>
+      <p class="mt-1 text-sm text-bordeaux/70">Sign out from this device.</p>
 
-      <button class="mt-4 w-full rounded-xl bg-white/10 px-4 py-3 hover:bg-white/15" @click="logout">
+      <button class="mt-4 w-full rounded-xl bg-black/10 px-4 py-3 hover:bg-black/15" @click="logout">
         Logout
       </button>
     </section>
@@ -212,19 +212,19 @@ async function logout() {
     <div v-if="cuisineSheetOpen" class="fixed inset-0 z-[80]">
       <div class="absolute inset-0 bg-black/60" @click="cuisineSheetOpen = false" />
       <div
-        class="absolute bottom-0 left-0 right-0 rounded-t-3xl border-t border-white/10 bg-slate-950 px-5 py-4"
+        class="absolute bottom-0 left-0 right-0 rounded-t-3xl border-t border-black/10 bg-beige px-5 py-4"
         style="padding-bottom: max(env(safe-area-inset-bottom), 16px)"
       >
         <div class="flex items-center justify-between">
-          <div class="text-sm font-medium text-slate-200">Type de cuisine</div>
-          <button class="text-sm text-slate-300 underline" @click="cuisineSheetOpen = false">Close</button>
+          <div class="text-sm font-medium text-bordeaux">Type de cuisine</div>
+          <button class="text-sm text-bordeaux/70 underline" @click="cuisineSheetOpen = false">Close</button>
         </div>
 
         <div class="mt-4 grid grid-cols-2 gap-2">
           <button
             v-for="c in cuisineOptions"
             :key="c"
-            class="rounded-xl bg-white/5 px-4 py-3 text-sm text-slate-200 ring-1 ring-white/10 hover:bg-white/10"
+            class="rounded-xl bg-black/5 px-4 py-3 text-sm text-bordeaux ring-1 ring-black/10 hover:bg-black/10"
             @click="pickCuisine(c)"
           >
             {{ c }}

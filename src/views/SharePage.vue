@@ -83,62 +83,62 @@ async function logout() {
   <main class="mx-auto max-w-lg p-6 pb-28">
     <div class="text-2xl font-semibold">Partager</div>
 
-    <div class="mt-6 grid grid-cols-3 gap-2 rounded-2xl bg-white/5 p-1">
+    <div class="mt-6 grid grid-cols-3 gap-2 rounded-2xl bg-black/5 p-1">
       <button
         class="rounded-xl px-4 py-3 text-sm"
-        :class="tab === 'public' ? 'bg-white/10 text-slate-100' : 'text-slate-300 hover:bg-white/5'"
+        :class="tab === 'public' ? 'bg-black/10 text-bordeaux' : 'text-bordeaux/70 hover:bg-black/5'"
         @click="tab = 'public'"
       >
         Lien public
       </button>
       <button
         class="rounded-xl px-4 py-3 text-sm"
-        :class="tab === 'team' ? 'bg-white/10 text-slate-100' : 'text-slate-300 hover:bg-white/5'"
+        :class="tab === 'team' ? 'bg-black/10 text-bordeaux' : 'text-bordeaux/70 hover:bg-black/5'"
         @click="tab = 'team'"
       >
         Équipe
       </button>
       <button
         class="rounded-xl px-4 py-3 text-sm"
-        :class="tab === 'session' ? 'bg-white/10 text-slate-100' : 'text-slate-300 hover:bg-white/5'"
+        :class="tab === 'session' ? 'bg-black/10 text-bordeaux' : 'text-bordeaux/70 hover:bg-black/5'"
         @click="tab = 'session'"
       >
         Session
       </button>
     </div>
 
-    <section v-if="tab === 'public'" class="mt-6 rounded-2xl bg-white/5 p-5">
+    <section v-if="tab === 'public'" class="mt-6 rounded-2xl bg-black/5 p-5">
       <h2 class="text-lg font-semibold">Public link</h2>
-      <p class="mt-1 text-sm text-slate-300">Share with customers.</p>
+      <p class="mt-1 text-sm text-bordeaux/70">Share with customers.</p>
 
-      <div v-if="publicPageUrl" class="mt-4 break-all rounded-xl bg-black/30 p-3 font-mono text-xs text-slate-300">
+      <div v-if="publicPageUrl" class="mt-4 break-all rounded-xl bg-black/10 p-3 font-mono text-xs text-bordeaux/70">
         {{ publicPageUrl }}
       </div>
 
       <div class="mt-4 grid grid-cols-2 gap-2">
-        <button class="rounded-xl bg-white/10 px-4 py-3 text-sm hover:bg-white/15" :disabled="!publicPageUrl" @click="copyText(publicPageUrl)">
+        <button class="rounded-xl bg-black/10 px-4 py-3 text-sm hover:bg-black/15" :disabled="!publicPageUrl" @click="copyText(publicPageUrl)">
           Copy
         </button>
-        <button class="rounded-xl bg-white/10 px-4 py-3 text-sm hover:bg-white/15" :disabled="!publicPageUrl" @click="openLink(publicPageUrl)">
+        <button class="rounded-xl bg-black/10 px-4 py-3 text-sm hover:bg-black/15" :disabled="!publicPageUrl" @click="openLink(publicPageUrl)">
           Open
         </button>
       </div>
     </section>
 
-    <section v-if="tab === 'team'" class="mt-6 rounded-2xl bg-white/5 p-5">
+    <section v-if="tab === 'team'" class="mt-6 rounded-2xl bg-black/5 p-5">
       <h2 class="text-lg font-semibold">Worker access</h2>
-      <p class="mt-1 text-sm text-slate-300">Staff upload-only key (regeneratable).</p>
+      <p class="mt-1 text-sm text-bordeaux/70">Staff upload-only key (regeneratable).</p>
 
-      <div v-if="!auth.isMaster" class="mt-4 rounded-xl bg-white/10 p-4 text-sm text-slate-300">
+      <div v-if="!auth.isMaster" class="mt-4 rounded-xl bg-black/10 p-4 text-sm text-bordeaux/70">
         Only the master account can view and regenerate the worker key.
       </div>
 
       <template v-else>
-        <div class="mt-4 break-all rounded-xl bg-black/30 p-3 font-mono text-sm">
+        <div class="mt-4 break-all rounded-xl bg-black/10 p-3 font-mono text-sm">
           {{ workerKey }}
         </div>
 
-        <div v-if="workerLoginUrl" class="mt-3 break-all rounded-xl bg-black/30 p-3 font-mono text-xs text-slate-300">
+        <div v-if="workerLoginUrl" class="mt-3 break-all rounded-xl bg-black/10 p-3 font-mono text-xs text-bordeaux/70">
           {{ workerLoginUrl }}
         </div>
 
@@ -147,18 +147,18 @@ async function logout() {
         </div>
 
         <div class="mt-4 grid gap-3">
-          <button class="rounded-xl bg-white/10 px-4 py-3 hover:bg-white/15" @click="regenerateWorkerKey">
+          <button class="rounded-xl bg-black/10 px-4 py-3 hover:bg-black/15" @click="regenerateWorkerKey">
             Regenerate worker key
           </button>
         </div>
       </template>
     </section>
 
-    <section v-if="tab === 'session'" class="mt-6 rounded-2xl bg-white/5 p-5">
+    <section v-if="tab === 'session'" class="mt-6 rounded-2xl bg-black/5 p-5">
       <h2 class="text-lg font-semibold">Session</h2>
-      <p class="mt-1 text-sm text-slate-300">Déconnexion de cette session.</p>
+      <p class="mt-1 text-sm text-bordeaux/70">Déconnexion de cette session.</p>
 
-      <button class="mt-4 w-full rounded-xl bg-white/10 px-4 py-3 hover:bg-white/15" @click="logout">
+      <button class="mt-4 w-full rounded-xl bg-black/10 px-4 py-3 hover:bg-black/15" @click="logout">
         Déconnexion
       </button>
     </section>

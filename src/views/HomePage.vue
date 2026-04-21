@@ -7,13 +7,13 @@ const router = useRouter()
 <template>
   <main class="mx-auto max-w-lg p-6">
     <h1 class="text-3xl font-semibold tracking-tight">Vazy</h1>
-    <p class="mt-2 text-slate-300">
+    <p class="mt-2 text-bordeaux/70">
       Publish today’s menu with one photo.
     </p>
 
     <div class="mt-8 grid gap-3">
       <button
-        class="rounded-xl bg-white/10 px-4 py-3 text-left hover:bg-white/15"
+        class="rounded-xl bg-black/10 px-4 py-3 text-left hover:bg-black/15"
         @click="router.push('/login')"
       >
         Login
@@ -27,7 +27,7 @@ const router = useRouter()
       </button>
     </div>
 
-    <p class="mt-8 text-sm text-slate-400">
+    <p class="mt-8 text-sm text-bordeaux/70">
       Tip: staff can login via QR code.
     </p>
   </main>

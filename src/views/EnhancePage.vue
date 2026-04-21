@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useEnhanceSessionStore } from '../stores/enhanceSession'
 import { renderEnhanced, type EnhanceOps } from '../lib/enhance'
+import { apiBaseUrl, apiFetch } from '../lib/api'
 import { enqueueUpload, flushUploadQueue, newUploadId } from '../lib/uploadQueue'
 
 const router = useRouter()
@@ -191,23 +192,95 @@ async function save() {
   if (!auth.key) throw new Error('missing_auth')
   if (!enhancedBlob.value) throw new Error('missing_image')
 
-  await enqueueUpload({
-    id: newUploadId(),
-    createdAt: Date.now(),
-    authKey: auth.key,
-    date: chosenDate.value,
-    contentType: 'image/jpeg',
-    blob: enhancedBlob.value
-  })
+  if (session.target === 'menu') {
+    await enqueueUpload({
+      id: newUploadId(),
+      createdAt: Date.now(),
+      authKey: auth.key,
+      date: chosenDate.value,
+      contentType: 'image/jpeg',
+      blob: enhancedBlob.value
+    })
 
-  if (navigator.onLine) await flushUploadQueue({})
-  session.clear()
-  await router.push('/dashboard')
+    if (navigator.onLine) await flushUploadQueue({})
+    const back = session.returnTo || '/dashboard'
+    session.clear()
+    await router.push(back)
+    return
+  }
+
+  const contentType = 'image/jpeg'
+  if (session.target === 'permanent-menu') {
+    const presign = await apiFetch<{ id: string; objectKey: string; uploadUrl: string | null }>(
+      '/api/permanent-menu/presign-upload',
+      {
+        method: 'POST',
+        key: auth.key,
+        body: { contentType }
+      }
+    )
+
+    const putRes = presign.uploadUrl
+      ? await fetch(presign.uploadUrl, {
+          method: 'PUT',
+          headers: { 'content-type': contentType },
+          body: enhancedBlob.value
+        })
+      : await fetch(`${apiBaseUrl()}/api/permanent-menu/upload?id=${encodeURIComponent(presign.id)}`, {
+          method: 'PUT',
+          headers: {
+            authorization: `Bearer ${auth.key}`,
+            'content-type': contentType
+          },
+          body: enhancedBlob.value
+        })
+
+    if (!putRes.ok) throw new Error(`upload_failed_${putRes.status}`)
+
+    const back = session.returnTo || '/restaurant'
+    session.clear()
+    await router.push(back)
+    return
+  }
+
+  if (session.target === 'restaurant-photo') {
+    const presign = await apiFetch<{ id: string; objectKey: string; uploadUrl: string | null }>(
+      '/api/restaurant-photos/presign-upload',
+      {
+        method: 'POST',
+        key: auth.key,
+        body: { contentType }
+      }
+    )
+
+    const putRes = presign.uploadUrl
+      ? await fetch(presign.uploadUrl, {
+          method: 'PUT',
+          headers: { 'content-type': contentType },
+          body: enhancedBlob.value
+        })
+      : await fetch(`${apiBaseUrl()}/api/restaurant-photos/upload?id=${encodeURIComponent(presign.id)}`, {
+          method: 'PUT',
+          headers: {
+            authorization: `Bearer ${auth.key}`,
+            'content-type': contentType
+          },
+          body: enhancedBlob.value
+        })
+
+    if (!putRes.ok) throw new Error(`upload_failed_${putRes.status}`)
+
+    const back = session.returnTo || '/restaurant'
+    session.clear()
+    await router.push(back)
+    return
+  }
 }
 
 async function close() {
+  const back = session.returnTo || '/dashboard'
   session.clear()
-  await router.push('/dashboard')
+  await router.push(back)
 }
 
 onMounted(async () => {
@@ -216,7 +289,7 @@ onMounted(async () => {
     return
   }
 
-  chosenDate.value = session.defaultDate || todayISO()
+  chosenDate.value = session.target === 'menu' ? (session.defaultDate || todayISO()) : ''
   await recompute()
 })
 </script>
@@ -273,7 +346,7 @@ onMounted(async () => {
             {{ showAdjust ? 'Hide' : 'Adjust' }}
           </button>
 
-          <div class="flex flex-wrap gap-2">
+          <div v-if="session.target === 'menu'" class="flex flex-wrap gap-2">
             <button
               class="rounded-full px-3 py-2 text-xs ring-1 ring-white/10"
               :class="chosenDate === todayISO() ? 'bg-emerald-500/20 text-emerald-200 ring-emerald-400/30' : 'bg-white/5 text-slate-200 hover:bg-white/10'"
@@ -358,7 +431,7 @@ onMounted(async () => {
             </button>
           </div>
 
-          <label class="grid gap-2">
+          <label v-if="session.target === 'menu'" class="grid gap-2">
             <span class="text-sm text-slate-300">Date</span>
             <input
               v-model="chosenDate"
@@ -377,7 +450,7 @@ onMounted(async () => {
       <div class="mx-auto grid max-w-3xl gap-3">
         <button
           class="w-full rounded-xl bg-emerald-500 px-4 py-3 text-sm font-medium text-emerald-950 hover:bg-emerald-400"
-          :disabled="busy || chosenDate.length === 0 || cropMode"
+          :disabled="busy || cropMode || (session.target === 'menu' && chosenDate.length === 0)"
           @click="save"
         >
           Save

@@ -1,9 +1,14 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { useEnhanceSessionStore } from '../stores/enhanceSession'
 import { apiFetch } from '../lib/api'
 
 const auth = useAuthStore()
+const route = useRoute()
+const router = useRouter()
+const enhanceSession = useEnhanceSessionStore()
 
 const name = ref<string>('')
 const address = ref<string>('')
@@ -18,6 +23,43 @@ const permanentMenus = ref<{ id: string; createdAt: number }[]>([])
 const photosStatus = ref<string>('')
 const restaurantPhotos = ref<{ id: string; createdAt: number }[]>([])
 const tab = ref<'infos' | 'carte' | 'photos'>('infos')
+
+const viewerOpen = ref<boolean>(false)
+const viewerSrc = ref<string>('')
+const viewerKind = ref<'photo' | 'carte' | null>(null)
+const viewerId = ref<string>('')
+
+function normalizeTab(v: unknown): 'infos' | 'carte' | 'photos' {
+  return v === 'carte' || v === 'photos' ? v : 'infos'
+}
+
+async function setTab(next: 'infos' | 'carte' | 'photos') {
+  tab.value = next
+  await router.replace({ query: { ...route.query, tab: next } })
+}
+
+function openViewer(kind: 'photo' | 'carte', id: string, createdAt: number) {
+  viewerKind.value = kind
+  viewerId.value = id
+  viewerSrc.value = kind === 'photo' ? restaurantPhotoItemUrl(id, createdAt) : permanentMenuItemUrl(id, createdAt)
+  viewerOpen.value = true
+}
+
+function closeViewer() {
+  viewerOpen.value = false
+  viewerSrc.value = ''
+  viewerKind.value = null
+  viewerId.value = ''
+}
+
+async function deleteFromViewer() {
+  if (!viewerKind.value || !viewerId.value) return
+  const kind = viewerKind.value
+  const id = viewerId.value
+  if (kind === 'photo') await deletePhoto(id)
+  else await deletePermanentMenu(id)
+  closeViewer()
+}
 const cuisineOptions = [
   'Asiatique',
   'Bistrot',
@@ -45,38 +87,9 @@ async function onPhotoPick(e: Event) {
     if (!file) return
     if (!auth.key) throw new Error('missing_auth')
 
-    photosStatus.value = 'Uploading…'
+    enhanceSession.start(file, '', 'restaurant-photo', '/restaurant?tab=photos')
+    await router.push('/enhance')
 
-    const presign = await apiFetch<{ id: string; objectKey: string; uploadUrl: string | null }>(
-      '/api/restaurant-photos/presign-upload',
-      {
-        method: 'POST',
-        key: auth.key,
-        body: { contentType: file.type || 'image/jpeg' }
-      }
-    )
-
-    const putRes = presign.uploadUrl
-      ? await fetch(presign.uploadUrl, {
-          method: 'PUT',
-          headers: {
-            'content-type': file.type || 'image/jpeg'
-          },
-          body: file
-        })
-      : await fetch(`${apiFetchBase()}/api/restaurant-photos/upload?id=${encodeURIComponent(presign.id)}`, {
-          method: 'PUT',
-          headers: {
-            authorization: `Bearer ${auth.key}`,
-            'content-type': file.type || 'image/jpeg'
-          },
-          body: file
-        })
-
-    if (!putRes.ok) throw new Error(`upload_failed_${putRes.status}`)
-
-    restaurantPhotos.value = [{ id: presign.id, createdAt: Date.now() }, ...restaurantPhotos.value]
-    photosStatus.value = 'Uploaded.'
     input.value = ''
   } catch (err) {
     photosStatus.value = err instanceof Error ? err.message : 'upload_error'
@@ -119,6 +132,8 @@ function restaurantPhotoItemUrl(pid: string, t?: number) {
 
 onMounted(async () => {
   try {
+    tab.value = normalizeTab(route.query.tab)
+
     if (!auth.key) return
     const res = await apiFetch<{ restaurant: { name: string; address: string; city?: string; phone: string; cuisineType?: string } }>(
       '/api/restaurant',
@@ -145,6 +160,13 @@ onMounted(async () => {
   }
 })
 
+watch(
+  () => route.query.tab,
+  (v) => {
+    tab.value = normalizeTab(v)
+  }
+)
+
 async function onPermanentPick(e: Event) {
   try {
     const input = e.target as HTMLInputElement
@@ -152,38 +174,9 @@ async function onPermanentPick(e: Event) {
     if (!file) return
     if (!auth.key) throw new Error('missing_auth')
 
-    permanentStatus.value = 'Uploading…'
+    enhanceSession.start(file, '', 'permanent-menu', '/restaurant?tab=carte')
+    await router.push('/enhance')
 
-    const presign = await apiFetch<{ id: string; objectKey: string; uploadUrl: string | null }>(
-      '/api/permanent-menu/presign-upload',
-      {
-        method: 'POST',
-        key: auth.key,
-        body: { contentType: file.type || 'image/jpeg' }
-      }
-    )
-
-    const putRes = presign.uploadUrl
-      ? await fetch(presign.uploadUrl, {
-          method: 'PUT',
-          headers: {
-            'content-type': file.type || 'image/jpeg'
-          },
-          body: file
-        })
-      : await fetch(`${apiFetchBase()}/api/permanent-menu/upload?id=${encodeURIComponent(presign.id)}`, {
-          method: 'PUT',
-          headers: {
-            authorization: `Bearer ${auth.key}`,
-            'content-type': file.type || 'image/jpeg'
-          },
-          body: file
-        })
-
-    if (!putRes.ok) throw new Error(`upload_failed_${putRes.status}`)
-
-    permanentMenus.value = [{ id: presign.id, createdAt: Date.now() }, ...permanentMenus.value]
-    permanentStatus.value = 'Uploaded.'
     input.value = ''
   } catch (err) {
     permanentStatus.value = err instanceof Error ? err.message : 'upload_error'
@@ -238,21 +231,21 @@ async function saveProfile() {
       <button
         class="rounded-xl px-4 py-3 text-sm"
         :class="tab === 'infos' ? 'bg-white/10 text-slate-100' : 'text-slate-300 hover:bg-white/5'"
-        @click="tab = 'infos'"
+        @click="setTab('infos')"
       >
         Infos
       </button>
       <button
         class="rounded-xl px-4 py-3 text-sm"
         :class="tab === 'carte' ? 'bg-white/10 text-slate-100' : 'text-slate-300 hover:bg-white/5'"
-        @click="tab = 'carte'"
+        @click="setTab('carte')"
       >
         Carte
       </button>
       <button
         class="rounded-xl px-4 py-3 text-sm"
         :class="tab === 'photos' ? 'bg-white/10 text-slate-100' : 'text-slate-300 hover:bg-white/5'"
-        @click="tab = 'photos'"
+        @click="setTab('photos')"
       >
         Photos
       </button>
@@ -323,25 +316,35 @@ async function saveProfile() {
     </section>
 
     <section v-if="tab === 'photos'" class="mt-6 rounded-2xl bg-white/5 p-5">
-      <h2 class="text-lg font-semibold">Photos</h2>
+      <div class="flex items-center justify-between gap-3">
+        <h2 class="text-lg font-semibold">Photos</h2>
+
+        <label class="shrink-0">
+          <input class="hidden" type="file" accept="image/*" @change="onPhotoPick" />
+          <span
+            class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-emerald-500 hover:bg-white/15"
+            :class="!auth.isMaster ? 'pointer-events-none opacity-60' : ''"
+            title="Ajouter une photo"
+            aria-label="Ajouter une photo"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5">
+              <path d="M12 5v14" />
+              <path d="M5 12h14" />
+            </svg>
+          </span>
+        </label>
+      </div>
       <p class="mt-1 text-sm text-slate-300">Ajoutez des photos de votre restaurant (vitrine, salle, plats…).</p>
 
       <div class="mt-4">
         <div v-if="restaurantPhotos.length === 0" class="rounded-xl bg-white/10 p-4 text-sm text-slate-300">
           Aucune photo pour le moment.
         </div>
-        <div v-else class="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <div v-else class="grid grid-cols-1 gap-3">
           <div v-for="p in restaurantPhotos" :key="p.id" class="overflow-hidden rounded-2xl bg-black/30">
             <div class="aspect-[4/5] overflow-hidden">
-              <img class="h-full w-full object-cover" :src="restaurantPhotoItemUrl(p.id, p.createdAt)" :alt="p.id" />
-            </div>
-            <div class="grid gap-2 p-3">
-              <button
-                class="rounded-xl bg-white/10 px-3 py-2 text-xs hover:bg-white/15"
-                :disabled="!auth.isMaster"
-                @click="deletePhoto(p.id)"
-              >
-                Supprimer
+              <button class="block h-full w-full" type="button" @click="openViewer('photo', p.id, p.createdAt)">
+                <img class="h-full w-full object-cover" :src="restaurantPhotoItemUrl(p.id, p.createdAt)" :alt="p.id" />
               </button>
             </div>
           </div>
@@ -349,37 +352,40 @@ async function saveProfile() {
       </div>
 
       <div class="mt-4 grid gap-3">
-        <label class="w-full">
-          <input class="hidden" type="file" accept="image/*" @change="onPhotoPick" />
-          <span class="block w-full rounded-xl bg-white/10 px-4 py-3 text-center hover:bg-white/15">
-            Ajouter une photo
-          </span>
-        </label>
-
         <div v-if="photosStatus" class="text-sm text-slate-300">{{ photosStatus }}</div>
       </div>
     </section>
 
     <section v-if="tab === 'carte'" class="mt-6 rounded-2xl bg-white/5 p-5">
-      <h2 class="text-lg font-semibold">Carte</h2>
+      <div class="flex items-center justify-between gap-3">
+        <h2 class="text-lg font-semibold">Carte</h2>
+
+        <label class="shrink-0">
+          <input class="hidden" type="file" accept="image/*" @change="onPermanentPick" />
+          <span
+            class="inline-flex h-10 w-10 items-center justify-center rounded-xl text-emerald-500 bg-white/10"
+            :class="!auth.isMaster ? 'pointer-events-none opacity-60' : ''"
+            title="Ajouter une carte permanente"
+            aria-label="Ajouter une carte permanente"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5">
+              <path d="M12 5v14" />
+              <path d="M5 12h14" />
+            </svg>
+          </span>
+        </label>
+      </div>
       <p class="mt-1 text-sm text-slate-300">Toutes les cartes permanentes seront affichées ici.</p>
 
       <div class="mt-4">
         <div v-if="permanentMenus.length === 0" class="rounded-xl bg-white/10 p-4 text-sm text-slate-300">
           Aucune carte permanente pour le moment.
         </div>
-        <div v-else class="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <div v-else class="grid grid-cols-1 gap-3">
           <div v-for="m in permanentMenus" :key="m.id" class="overflow-hidden rounded-2xl bg-black/30">
             <div class="aspect-[4/5] overflow-hidden">
-              <img class="h-full w-full object-cover" :src="permanentMenuItemUrl(m.id, m.createdAt)" :alt="m.id" />
-            </div>
-            <div class="grid gap-2 p-3">
-              <button
-                class="rounded-xl bg-white/10 px-3 py-2 text-xs hover:bg-white/15"
-                :disabled="!auth.isMaster"
-                @click="deletePermanentMenu(m.id)"
-              >
-                Supprimer
+              <button class="block h-full w-full" type="button" @click="openViewer('carte', m.id, m.createdAt)">
+                <img class="h-full w-full object-cover" :src="permanentMenuItemUrl(m.id, m.createdAt)" :alt="m.id" />
               </button>
             </div>
           </div>
@@ -387,16 +393,34 @@ async function saveProfile() {
       </div>
 
       <div class="mt-4 grid gap-3">
-        <label class="w-full">
-          <input class="hidden" type="file" accept="image/*" @change="onPermanentPick" />
-          <span class="block w-full rounded-xl bg-white/10 px-4 py-3 text-center hover:bg-white/15">
-            Ajouter une carte permanente
-          </span>
-        </label>
-
         <div v-if="permanentStatus" class="text-sm text-slate-300">{{ permanentStatus }}</div>
       </div>
     </section>
+
+    <div v-if="viewerOpen" class="fixed inset-0 z-[90] bg-black">
+      <button class="absolute inset-0" type="button" @click="closeViewer" aria-label="Fermer" />
+      <div class="absolute inset-0 grid place-items-center">
+        <img v-if="viewerSrc" class="max-h-full max-w-full object-contain" :src="viewerSrc" alt="" />
+      </div>
+
+      <div
+        class="absolute inset-x-0 bottom-0 border-t border-white/10 bg-slate-950/95 px-5 py-4 backdrop-blur"
+        style="padding-bottom: max(env(safe-area-inset-bottom), 16px)"
+      >
+        <div class="mx-auto grid max-w-lg grid-cols-2 gap-3">
+          <button
+            class="rounded-xl bg-white/10 px-4 py-3 text-sm text-slate-200 hover:bg-white/15"
+            :disabled="!auth.isMaster"
+            @click="deleteFromViewer"
+          >
+            Supprimer
+          </button>
+          <button class="rounded-xl bg-emerald-500 px-4 py-3 text-sm font-medium text-emerald-950 hover:bg-emerald-400" @click="closeViewer">
+            Fermer
+          </button>
+        </div>
+      </div>
+    </div>
 
     <div v-if="cuisineSheetOpen" class="fixed inset-0 z-[80]">
       <div class="absolute inset-0 bg-black/60" @click="cuisineSheetOpen = false" />

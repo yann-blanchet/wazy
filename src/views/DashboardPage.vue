@@ -141,6 +141,22 @@ async function onTakePhotoChange(e: Event) {
   <main class="mx-auto max-w-lg p-6 pb-28">
     <div class="flex items-center justify-between">
       <h1 class="text-2xl font-bold">WAZY</h1>
+      <button
+        class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-black/10 text-bordeaux hover:bg-black/15"
+        type="button"
+        aria-label="Historique"
+        title="Historique"
+        @click="router.push('/history')"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5">
+          <path d="M7 3v3" />
+          <path d="M17 3v3" />
+          <path d="M4 7h16" />
+          <path d="M6 6h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V8a2 2 0 012-2z" />
+          <path d="M8 11h4" />
+          <path d="M8 15h6" />
+        </svg>
+      </button>
     </div>
 
     <div class="mt-6 grid gap-4">
@@ -157,15 +173,6 @@ async function onTakePhotoChange(e: Event) {
           </div>
         </div>
       </div>
-
-      <button
-        class="grid gap-1 rounded-xl bg-black/5 p-4 text-left hover:bg-black/10"
-        type="button"
-        @click="router.push('/history')"
-      >
-        <div class="text-xs uppercase tracking-wide text-bordeaux/70">Historique</div>
-        <div class="text-sm font-medium text-bordeaux">Voir les menus précédents</div>
-      </button>
 
       <div v-if="serverPreviewUrl" class="overflow-hidden rounded-2xl bg-black/10">
         <img

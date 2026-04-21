@@ -247,7 +247,7 @@ async function saveProfile() {
         :class="tab === 'photos' ? 'bg-black/10 text-bordeaux' : 'text-bordeaux/70 hover:bg-black/5'"
         @click="setTab('photos')"
       >
-        Photos
+        Galerie
       </button>
     </div>
 
@@ -317,7 +317,7 @@ async function saveProfile() {
 
     <section v-if="tab === 'photos'" class="mt-6 rounded-2xl bg-black/5 p-5">
       <div class="flex items-center justify-between gap-3">
-        <h2 class="text-lg font-semibold">Photos</h2>
+        <h2 class="text-lg font-semibold">Galerie</h2>
 
         <label class="shrink-0">
           <input class="hidden" type="file" accept="image/*" @change="onPhotoPick" />

@@ -9,7 +9,7 @@ import { uploadQueueCount } from '../lib/uploadQueue'
 const router = useRouter()
 const auth = useAuthStore()
 
-const tab = ref<'public' | 'team' | 'stats' | 'session'>('public')
+const tab = ref<'public' | 'team' | 'stats'>('public')
 
 const workerKey = ref<string>('')
 const qrDataUrl = ref<string>('')
@@ -123,9 +123,24 @@ async function logout() {
 
 <template>
   <main class="mx-auto max-w-lg p-6 pb-28">
-    <div class="text-2xl font-semibold">Paramètres</div>
+    <div class="flex items-center justify-between">
+      <div class="text-2xl font-semibold">Paramètres</div>
+      <button
+        class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-black/10 text-bordeaux hover:bg-black/15"
+        type="button"
+        aria-label="Déconnexion"
+        title="Déconnexion"
+        @click="logout"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5">
+          <path d="M10 16l-4-4 4-4" />
+          <path d="M6 12h11" />
+          <path d="M15 4h4a2 2 0 012 2v12a2 2 0 01-2 2h-4" />
+        </svg>
+      </button>
+    </div>
 
-    <div class="mt-6 grid grid-cols-4 gap-2 rounded-2xl bg-black/5 p-1">
+    <div class="mt-6 grid grid-cols-3 gap-2 rounded-2xl bg-black/5 p-1">
       <button
         class="rounded-xl px-4 py-3 text-sm"
         :class="tab === 'public' ? 'bg-black/10 text-bordeaux' : 'text-bordeaux/70 hover:bg-black/5'"
@@ -146,13 +161,6 @@ async function logout() {
         @click="tab = 'stats'"
       >
         Stats
-      </button>
-      <button
-        class="rounded-xl px-4 py-3 text-sm"
-        :class="tab === 'session' ? 'bg-black/10 text-bordeaux' : 'text-bordeaux/70 hover:bg-black/5'"
-        @click="tab = 'session'"
-      >
-        Session
       </button>
     </div>
 
@@ -232,13 +240,5 @@ async function logout() {
       </template>
     </section>
 
-    <section v-if="tab === 'session'" class="mt-6 rounded-2xl bg-black/5 p-5">
-      <h2 class="text-lg font-semibold">Session</h2>
-      <p class="mt-1 text-sm text-bordeaux/70">Déconnexion de cette session.</p>
-
-      <button class="mt-4 w-full rounded-xl bg-black/10 px-4 py-3 hover:bg-black/15" @click="logout">
-        Déconnexion
-      </button>
-    </section>
   </main>
 </template>

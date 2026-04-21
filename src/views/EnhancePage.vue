@@ -298,8 +298,8 @@ onMounted(async () => {
   <main class="min-h-dvh bg-beige">
     <div class="sticky top-0 z-10 border-b border-black/10 bg-beige px-5 py-4" style="padding-top: max(env(safe-area-inset-top), 16px)">
       <div class="flex items-center justify-between">
-        <div class="text-sm font-medium text-bordeaux">Enhance</div>
-        <button class="text-sm text-bordeaux/70 underline" @click="close">Close</button>
+        <div class="text-sm font-medium text-bordeaux">Nouvelle photo</div>
+        <button class="text-sm text-bordeaux/70 underline" @click="close">Fermer</button>
       </div>
     </div>
 
@@ -348,16 +348,16 @@ onMounted(async () => {
 
           <div v-if="session.target === 'menu'" class="flex flex-wrap gap-2">
             <button
-              class="rounded-full px-3 py-2 text-xs ring-1 ring-white/10"
-              :class="chosenDate === todayISO() ? 'bg-emerald-500/20 text-emerald-200 ring-emerald-400/30' : 'bg-white/5 text-slate-200 hover:bg-white/10'"
+              class="rounded-full px-3 py-2 text-xs ring-1 ring-black/10"
+              :class="chosenDate === todayISO() ? 'bg-emerald-500/20 text-emerald-200 ring-emerald-400/30' : 'bg-black/5 text-bordeaux hover:bg-black/10'"
               :disabled="busy"
               @click="chosenDate = todayISO()"
             >
               Aujourd'hui
             </button>
             <button
-              class="rounded-full px-3 py-2 text-xs ring-1 ring-white/10"
-              :class="chosenDate === tomorrowISO() ? 'bg-emerald-500/20 text-emerald-200 ring-emerald-400/30' : 'bg-white/5 text-slate-200 hover:bg-white/10'"
+              class="rounded-full px-3 py-2 text-xs ring-1 ring-black/10"
+              :class="chosenDate === tomorrowISO() ? 'bg-emerald-500/20 text-emerald-200 ring-emerald-400/30' : 'bg-black/5 text-bordeaux hover:bg-black/10'"
               :disabled="busy"
               @click="chosenDate = tomorrowISO()"
             >
@@ -369,48 +369,48 @@ onMounted(async () => {
         <div v-if="showAdjust" class="mt-3 grid gap-3">
           <div class="flex flex-wrap gap-2">
             <button
-              class="rounded-full px-3 py-2 text-xs ring-1 ring-white/10"
-              :class="cropMode ? 'bg-emerald-500/20 text-emerald-200 ring-emerald-400/30' : 'bg-white/5 text-slate-200 hover:bg-white/10'"
+              class="rounded-full px-3 py-2 text-xs ring-1 ring-black/10"
+              :class="cropMode ? 'bg-emerald-500/20 text-emerald-200 ring-emerald-400/30' : 'bg-black/5 text-bordeaux hover:bg-black/10'"
               :disabled="busy"
               @click="cropMode ? cancelCrop() : startCrop()"
             >
               Crop
             </button>
             <button
-              class="rounded-full px-3 py-2 text-xs ring-1 ring-white/10"
-              :class="ops.autobalance ? 'bg-emerald-500/20 text-emerald-200 ring-emerald-400/30' : 'bg-white/5 text-slate-200 hover:bg-white/10'"
+              class="rounded-full px-3 py-2 text-xs ring-1 ring-black/10"
+              :class="ops.autobalance ? 'bg-emerald-500/20 text-emerald-200 ring-emerald-400/30' : 'bg-black/5 text-bordeaux hover:bg-black/10'"
               :disabled="busy"
               @click="toggle('autobalance')"
             >
               Autobalance
             </button>
             <button
-              class="rounded-full px-3 py-2 text-xs ring-1 ring-white/10"
-              :class="ops.autocrop ? 'bg-emerald-500/20 text-emerald-200 ring-emerald-400/30' : 'bg-white/5 text-slate-200 hover:bg-white/10'"
+              class="rounded-full px-3 py-2 text-xs ring-1 ring-black/10"
+              :class="ops.autocrop ? 'bg-emerald-500/20 text-emerald-200 ring-emerald-400/30' : 'bg-black/5 text-bordeaux hover:bg-black/10'"
               :disabled="busy"
               @click="toggle('autocrop')"
             >
               Autocrop
             </button>
             <button
-              class="rounded-full px-3 py-2 text-xs ring-1 ring-white/10"
-              :class="ops.shadowremoval ? 'bg-emerald-500/20 text-emerald-200 ring-emerald-400/30' : 'bg-white/5 text-slate-200 hover:bg-white/10'"
+              class="rounded-full px-3 py-2 text-xs ring-1 ring-black/10"
+              :class="ops.shadowremoval ? 'bg-emerald-500/20 text-emerald-200 ring-emerald-400/30' : 'bg-black/5 text-bordeaux hover:bg-black/10'"
               :disabled="busy"
               @click="toggle('shadowremoval')"
             >
               Shadowremoval
             </button>
             <button
-              class="rounded-full px-3 py-2 text-xs ring-1 ring-white/10"
-              :class="ops.sharpen ? 'bg-emerald-500/20 text-emerald-200 ring-emerald-400/30' : 'bg-white/5 text-slate-200 hover:bg-white/10'"
+              class="rounded-full px-3 py-2 text-xs ring-1 ring-black/10"
+              :class="ops.sharpen ? 'bg-emerald-500/20 text-emerald-200 ring-emerald-400/30' : 'bg-black/5 text-bordeaux hover:bg-black/10'"
               :disabled="busy"
               @click="toggle('sharpen')"
             >
               Sharpen
             </button>
             <button
-              class="rounded-full px-3 py-2 text-xs ring-1 ring-white/10"
-              :class="(ops.autobalance || ops.autocrop || ops.shadowremoval || ops.sharpen) ? 'bg-white/10 text-slate-200 hover:bg-white/15' : 'bg-white/5 text-slate-400'"
+              class="rounded-full px-3 py-2 text-xs ring-1 ring-black/10"
+              :class="(ops.autobalance || ops.autocrop || ops.shadowremoval || ops.sharpen) ? 'bg-black/10 text-bordeaux hover:bg-black/15' : 'bg-black/5 text-bordeaux/70'"
               :disabled="busy"
               @click="reset"
             >
@@ -419,7 +419,7 @@ onMounted(async () => {
           </div>
 
           <div v-if="cropMode" class="grid grid-cols-2 gap-2">
-            <button class="rounded-xl bg-white/10 px-4 py-3 text-sm hover:bg-white/15" :disabled="busy" @click="cancelCrop">
+            <button class="rounded-xl bg-black/10 px-4 py-3 text-sm hover:bg-black/15" :disabled="busy" @click="cancelCrop">
               Cancel
             </button>
             <button
@@ -432,11 +432,11 @@ onMounted(async () => {
           </div>
 
           <label v-if="session.target === 'menu'" class="grid gap-2">
-            <span class="text-sm text-slate-300">Date</span>
+            <span class="text-sm text-bordeaux/70">Date</span>
             <input
               v-model="chosenDate"
               type="date"
-              class="rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm outline-none focus:border-emerald-400/60"
+              class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 text-sm outline-none focus:border-emerald-400/60"
             />
           </label>
         </div>
@@ -448,13 +448,18 @@ onMounted(async () => {
       style="padding-bottom: max(env(safe-area-inset-bottom), 16px)"
     >
       <div class="mx-auto grid max-w-3xl gap-3">
-        <button
-          class="w-full rounded-xl bg-emerald-500 px-4 py-3 text-sm font-medium text-emerald-950 hover:bg-emerald-400"
-          :disabled="busy || cropMode || (session.target === 'menu' && chosenDate.length === 0)"
-          @click="save"
-        >
-          Save
-        </button>
+        <div class="grid grid-cols-2 gap-3">
+          <button class="w-full rounded-xl bg-black/10 px-4 py-3 text-sm text-bordeaux hover:bg-black/15" :disabled="busy" @click="close">
+            Annuler
+          </button>
+          <button
+            class="w-full rounded-xl bg-bordeaux px-4 py-3 text-sm font-medium text-beige hover:bg-bordeaux/90"
+            :disabled="busy || cropMode || (session.target === 'menu' && chosenDate.length === 0)"
+            @click="save"
+          >
+            Enregistrer
+          </button>
+        </div>
         <div class="text-center text-xs text-bordeaux/70" v-if="cropMode">Finish crop (Apply/Cancel) to save</div>
       </div>
     </div>

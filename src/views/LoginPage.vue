@@ -46,12 +46,12 @@ async function login() {
 <template>
   <main class="mx-auto max-w-lg p-6">
     <h1 class="text-2xl font-semibold">
-      {{ mode === 'create' ? 'Create account' : 'Login' }}
+      {{ mode === 'create' ? 'Créer un compte' : 'Connexion' }}
     </h1>
 
     <div v-if="mode === 'create'" class="mt-6 grid gap-3">
       <label class="grid gap-2">
-        <span class="text-sm text-bordeaux/70">Choose your public id</span>
+        <span class="text-sm text-bordeaux/70">Choisissez votre identifiant public</span>
         <input
           v-model="desiredId"
           class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 font-mono text-sm text-bordeaux outline-none focus:border-bordeaux/60"
@@ -66,7 +66,7 @@ async function login() {
         class="rounded-xl bg-bordeaux px-4 py-3 font-medium text-beige hover:bg-bordeaux/90"
         @click="createAccount"
       >
-        Create → get master key
+        Créer → obtenir la clé maître
       </button>
 
       <div v-if="createError" class="rounded-xl bg-black/10 p-4 text-sm text-bordeaux/70">
@@ -74,20 +74,20 @@ async function login() {
       </div>
 
       <div v-if="masterKeyShown" class="rounded-xl bg-black/10 p-4">
-        <div class="text-sm text-bordeaux/70">Master key (shown once):</div>
+        <div class="text-sm text-bordeaux/70">Clé maître (affichée une seule fois) :</div>
         <div class="mt-2 break-all font-mono text-sm text-bordeaux">{{ masterKeyShown }}</div>
         <button
           class="mt-3 rounded-lg bg-black/10 px-3 py-2 text-sm hover:bg-black/15"
           @click="useMasterKeyToLogin"
         >
-          Use this key to login
+          Se connecter avec cette clé
         </button>
       </div>
     </div>
 
     <div v-else class="mt-6 grid gap-3">
       <label class="grid gap-2">
-        <span class="text-sm text-bordeaux/70">Key</span>
+        <span class="text-sm text-bordeaux/70">Clé</span>
         <input
           v-model="key"
           class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 font-mono text-sm text-bordeaux outline-none focus:border-bordeaux/60"
@@ -103,12 +103,12 @@ async function login() {
         :disabled="key.length === 0"
         @click="login"
       >
-        Login
+        Connexion
       </button>
     </div>
 
     <button class="mt-8 text-sm text-bordeaux/70 underline" @click="router.push('/')">
-      Back
+      Retour
     </button>
   </main>
 </template>

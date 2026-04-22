@@ -194,18 +194,18 @@ async function logout() {
 <template>
   <main class="mx-auto max-w-lg p-6">
     <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-semibold">Settings</h1>
+      <h1 class="text-2xl font-semibold">Paramètres</h1>
       <button class="text-sm text-bordeaux/70 underline" @click="router.push('/dashboard')">
-        Back
+        Retour
       </button>
     </div>
 
     <section class="mt-6 rounded-2xl bg-black/5 p-5">
       <h2 class="text-lg font-semibold">Session</h2>
-      <p class="mt-1 text-sm text-bordeaux/70">Sign out from this device.</p>
+      <p class="mt-1 text-sm text-bordeaux/70">Se déconnecter de cet appareil.</p>
 
       <button class="mt-4 w-full rounded-xl bg-black/10 px-4 py-3 hover:bg-black/15" @click="logout">
-        Logout
+        Déconnexion
       </button>
     </section>
 
@@ -217,7 +217,7 @@ async function logout() {
       >
         <div class="flex items-center justify-between">
           <div class="text-sm font-medium text-bordeaux">Type de cuisine</div>
-          <button class="text-sm text-bordeaux/70 underline" @click="cuisineSheetOpen = false">Close</button>
+          <button class="text-sm text-bordeaux/70 underline" @click="cuisineSheetOpen = false">Fermer</button>
         </div>
 
         <div class="mt-4 grid grid-cols-2 gap-2">

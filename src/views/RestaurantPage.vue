@@ -269,41 +269,41 @@ async function saveProfile() {
 
     <section v-if="tab === 'infos'" class="mt-6 rounded-2xl bg-black/5 p-5">
       <h2 class="text-lg font-semibold">Infos</h2>
-      <p class="mt-1 text-sm text-bordeaux/70">Shown on the public page.</p>
+      <p class="mt-1 text-sm text-bordeaux/70">Affiché sur la page publique.</p>
 
       <div class="mt-4 grid gap-3">
         <label class="grid gap-2">
-          <span class="text-sm text-bordeaux/70">Name</span>
+          <span class="text-sm text-bordeaux/70">Nom</span>
           <input
             v-model="name"
-            class="rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm outline-none focus:border-emerald-400/60"
+            class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 text-sm text-bordeaux outline-none focus:border-bordeaux/60"
             autocomplete="organization"
           />
         </label>
 
         <label class="grid gap-2">
-          <span class="text-sm text-bordeaux/70">Address</span>
+          <span class="text-sm text-bordeaux/70">Adresse</span>
           <input
             v-model="address"
-            class="rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm outline-none focus:border-emerald-400/60"
+            class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 text-sm text-bordeaux outline-none focus:border-bordeaux/60"
             autocomplete="street-address"
           />
         </label>
 
         <label class="grid gap-2">
-          <span class="text-sm text-bordeaux/70">City</span>
+          <span class="text-sm text-bordeaux/70">Ville</span>
           <input
             v-model="city"
-            class="rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm outline-none focus:border-emerald-400/60"
+            class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 text-sm text-bordeaux outline-none focus:border-bordeaux/60"
             autocomplete="address-level2"
           />
         </label>
 
         <label class="grid gap-2">
-          <span class="text-sm text-bordeaux/70">Phone</span>
+          <span class="text-sm text-bordeaux/70">Téléphone</span>
           <input
             v-model="phone"
-            class="rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm outline-none focus:border-emerald-400/60"
+            class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 text-sm text-bordeaux outline-none focus:border-bordeaux/60"
             autocomplete="tel"
           />
         </label>
@@ -312,7 +312,7 @@ async function saveProfile() {
           <span class="text-sm text-bordeaux/70">Type de cuisine</span>
           <input
             v-model="cuisineType"
-            class="rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm outline-none focus:border-emerald-400/60"
+            class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 text-sm text-bordeaux outline-none focus:border-bordeaux/60"
             autocomplete="off"
             readonly
             @click="cuisineSheetOpen = true"
@@ -324,7 +324,7 @@ async function saveProfile() {
           :disabled="!auth.isMaster"
           @click="saveProfile"
         >
-          Save restaurant info
+          Enregistrer
         </button>
 
         <div v-if="profileStatus" class="text-sm text-bordeaux/70">{{ profileStatus }}</div>
@@ -450,7 +450,7 @@ async function saveProfile() {
       >
         <div class="flex items-center justify-between">
           <div class="text-sm font-medium text-bordeaux">Type de cuisine</div>
-          <button class="text-sm text-bordeaux/70 underline" @click="cuisineSheetOpen = false">Close</button>
+          <button class="text-sm text-bordeaux/70 underline" @click="cuisineSheetOpen = false">Fermer</button>
         </div>
 
         <div class="mt-4 grid grid-cols-2 gap-2">

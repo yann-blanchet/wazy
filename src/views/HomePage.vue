@@ -8,7 +8,7 @@ const router = useRouter()
   <main class="mx-auto max-w-lg p-6">
     <h1 class="text-3xl font-semibold tracking-tight">Vazy</h1>
     <p class="mt-2 text-bordeaux/70">
-      Publish today’s menu with one photo.
+      Publiez le menu du jour avec une seule photo.
     </p>
 
     <div class="mt-8 grid gap-3">
@@ -16,19 +16,19 @@ const router = useRouter()
         class="rounded-xl bg-black/10 px-4 py-3 text-left hover:bg-black/15"
         @click="router.push('/login')"
       >
-        Login
+        Connexion
       </button>
 
       <button
-        class="rounded-xl bg-emerald-500 px-4 py-3 font-medium text-emerald-950 hover:bg-emerald-400"
+        class="rounded-xl bg-bordeaux px-4 py-3 font-medium text-beige hover:bg-bordeaux/90"
         @click="router.push('/login?mode=create')"
       >
-        Create account
+        Créer un compte
       </button>
     </div>
 
     <p class="mt-8 text-sm text-bordeaux/70">
-      Tip: staff can login via QR code.
+      Astuce : l’équipe peut se connecter via QR code.
     </p>
   </main>
 </template>

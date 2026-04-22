@@ -195,12 +195,12 @@ async function onTakePhotoChange(e: Event) {
             v-show="serverPreviewState === 'loaded'"
             class="w-full object-cover"
             :src="serverPreviewUrl"
-            alt="Existing menu photo"
+            alt="Photo du menu existant"
             @load="serverPreviewState = 'loaded'"
             @error="serverPreviewState = 'missing'"
             @click="openViewer(serverPreviewUrl)"
           />
-          <div v-if="serverPreviewState === 'loading'" class="p-4 text-sm text-bordeaux/70">Loading…</div>
+          <div v-if="serverPreviewState === 'loading'" class="p-4 text-sm text-bordeaux/70">Chargement…</div>
           <div v-else-if="serverPreviewState === 'missing'" class="p-4 text-sm text-bordeaux/70">
             Pas de menu pour aujourd'hui.
           </div>
@@ -270,11 +270,11 @@ async function onTakePhotoChange(e: Event) {
         style="padding-bottom: max(env(safe-area-inset-bottom), 16px)"
       >
         <button class="rounded-full bg-black/10 px-4 py-2 text-sm text-bordeaux" @click="closeViewer">
-          Close
+          Fermer
         </button>
 
         <button class="rounded-full bg-rose-500/20 px-4 py-2 text-sm text-rose-950" @click="deleteMenuForDate(); closeViewer()">
-          Delete
+          Supprimer
         </button>
       </div>
     </div>

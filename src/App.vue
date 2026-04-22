@@ -9,7 +9,14 @@ const showBottomNav = computed(() => {
   return route.path === '/dashboard' || route.path === '/restaurant' || route.path === '/share'
 })
 
-const active = computed(() => route.path)
+const active = computed(() => {
+  if (route.path === '/restaurant') {
+    const tab = route.query.tab
+    if (tab === 'carte') return '/restaurant?tab=carte'
+    return '/restaurant?tab=infos'
+  }
+  return route.path
+})
 </script>
 
 <template>
@@ -21,7 +28,7 @@ const active = computed(() => route.path)
       class="fixed inset-x-0 bottom-0 z-[60] border-t border-black/10 bg-beige/95 px-4 py-2 backdrop-blur"
       style="padding-bottom: max(env(safe-area-inset-bottom), 8px)"
     >
-      <div class="mx-auto grid max-w-lg grid-cols-3 gap-2">
+      <div class="mx-auto grid max-w-lg grid-cols-4 gap-2">
         <button
           class="grid justify-items-center gap-1 rounded-xl px-2 py-2 text-[11px]"
           :class="active === '/dashboard' ? 'bg-black/5 text-bordeaux' : 'text-bordeaux/70 hover:bg-black/5'"
@@ -31,19 +38,32 @@ const active = computed(() => route.path)
             <path d="M4 10.5l8-7 8 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
             <path d="M6.5 9.5V20h11V9.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
           </svg>
-          Menus
+          Menu
         </button>
         <button
           class="grid justify-items-center gap-1 rounded-xl px-2 py-2 text-[11px]"
-          :class="active === '/restaurant' ? 'bg-black/5 text-bordeaux' : 'text-bordeaux/70 hover:bg-black/5'"
-          @click="router.push('/restaurant')"
+          :class="active === '/restaurant?tab=carte' ? 'bg-black/5 text-bordeaux' : 'text-bordeaux/70 hover:bg-black/5'"
+          @click="router.push({ path: '/restaurant', query: { tab: 'carte' } })"
+        >
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5">
+            <path d="M6 4h12a2 2 0 012 2v13a1 1 0 01-1 1H7a1 1 0 01-1-1V6a2 2 0 012-2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M8 8h8" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            <path d="M8 12h8" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            <path d="M8 16h5" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          </svg>
+          Carte
+        </button>
+        <button
+          class="grid justify-items-center gap-1 rounded-xl px-2 py-2 text-[11px]"
+          :class="active === '/restaurant?tab=infos' ? 'bg-black/5 text-bordeaux' : 'text-bordeaux/70 hover:bg-black/5'"
+          @click="router.push({ path: '/restaurant', query: { tab: 'infos' } })"
         >
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5">
             <path d="M3 20h18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
             <path d="M6 20V9a2 2 0 012-2h8a2 2 0 012 2v11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
             <path d="M9 11h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
           </svg>
-          Restaurant
+          Resto
         </button>
         <button
           class="grid justify-items-center gap-1 rounded-xl px-2 py-2 text-[11px]"
@@ -51,29 +71,14 @@ const active = computed(() => route.path)
           @click="router.push('/share')"
         >
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5">
-            <path
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M4.5 12a7.5 7.5 0 0113.39-4.5M19.5 12a7.5 7.5 0 01-13.39 4.5"
-            />
-            <path
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M12 9.75a2.25 2.25 0 100 4.5 2.25 2.25 0 000-4.5z"
-            />
-            <path
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M12 2.25v2.1M12 19.65v2.1M4.35 12H2.25M21.75 12h-2.1M5.1 5.1l1.49 1.49M17.41 17.41l1.49 1.49M18.9 5.1l-1.49 1.49M6.59 17.41L5.1 18.9"
-            />
+            <path d="M12 20h9" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            <path d="M12 14h9" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            <path d="M12 8h9" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            <path d="M3 7l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M3 13l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M3 19l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
           </svg>
-          Paramètres
+          QR
         </button>
       </div>
     </div>

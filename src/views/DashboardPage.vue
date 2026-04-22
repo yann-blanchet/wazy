@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useEnhanceSessionStore } from '../stores/enhanceSession'
@@ -26,6 +26,15 @@ const restaurantName = ref<string>('')
 const restaurantAddress = ref<string>('')
 const restaurantCity = ref<string>('')
 const restaurantCuisineType = ref<string>('')
+
+type MenuItem = { date: string; createdAt: number }
+const menus = ref<MenuItem[]>([])
+
+const cameraInputEl = ref<HTMLInputElement | null>(null)
+
+function triggerCamera() {
+  cameraInputEl.value?.click()
+}
 
 const viewerOpen = ref<boolean>(false)
 const viewerUrl = ref<string>('')
@@ -77,7 +86,35 @@ onMounted(async () => {
     restaurantCuisineType.value = ''
   }
 
+  try {
+    if (auth.key) {
+      const res = await apiFetch<{ id: string; menus: MenuItem[] }>('/api/menus', {
+        method: 'GET',
+        key: auth.key
+      })
+      menus.value = Array.isArray(res.menus) ? res.menus : []
+    }
+  } catch {
+    menus.value = []
+  }
+
   refreshServerPreview()
+})
+
+function formatUpdatedAt(ts: number) {
+  const d = new Date(ts)
+  const pad = (v: number) => String(v).padStart(2, '0')
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+const selectedMenu = computed(() => menus.value.find((m) => m.date === selectedDate.value) ?? null)
+const lastUpdatedText = computed(() => (selectedMenu.value ? formatUpdatedAt(selectedMenu.value.createdAt) : '—'))
+
+const quickHistoryDates = computed(() => {
+  return menus.value
+    .map((m) => m.date)
+    .filter((d) => d !== selectedDate.value)
+    .slice(0, 3)
 })
 
 function apiBase() {
@@ -141,52 +178,42 @@ async function onTakePhotoChange(e: Event) {
   <main class="mx-auto max-w-lg p-6 pb-28">
     <div class="flex items-center justify-between">
       <h1 class="text-2xl font-bold">WAZY</h1>
-      <button
-        class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-black/10 text-bordeaux hover:bg-black/15"
-        type="button"
-        aria-label="Historique"
-        title="Historique"
-        @click="router.push('/history')"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5">
-          <path d="M7 3v3" />
-          <path d="M17 3v3" />
-          <path d="M4 7h16" />
-          <path d="M6 6h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V8a2 2 0 012-2z" />
-          <path d="M8 11h4" />
-          <path d="M8 15h6" />
-        </svg>
-      </button>
+      <div class="text-sm font-medium text-bordeaux">{{ restaurantName || auth.id || '—' }}</div>
     </div>
 
     <div class="mt-6 grid gap-4">
 
-      <div class="grid gap-1 rounded-xl bg-black/5 p-4">
-        <div class="flex items-start justify-between gap-4">
-          <div class="grid gap-1">
-            <div class="text-xs uppercase tracking-wide text-bordeaux/70">Restaurant</div>
-            <div class="text-sm font-medium text-bordeaux">{{ restaurantName || auth.id || '—' }}</div>
-          </div>
-          <div class="grid justify-items-end gap-1 text-right">
-            <div class="text-xs uppercase tracking-wide text-bordeaux/70">Aujourdh'hui</div>
-            <div class="font-mono text-sm text-bordeaux">{{ selectedDate }}</div>
+
+      <div class="grid gap-2 rounded-xl bg-black/5 p-4">
+        <div class="flex items-center justify-between gap-3">
+          <div class="text-xs uppercase tracking-wide text-bordeaux/70">Menu du jour</div>
+          <div class="text-xs text-bordeaux/70">Dernière mise à jour: {{ lastUpdatedText }}</div>
+        </div>
+
+        <div v-if="serverPreviewUrl" class="overflow-hidden rounded-2xl bg-black/10">
+          <img
+            v-show="serverPreviewState === 'loaded'"
+            class="w-full object-cover"
+            :src="serverPreviewUrl"
+            alt="Existing menu photo"
+            @load="serverPreviewState = 'loaded'"
+            @error="serverPreviewState = 'missing'"
+            @click="openViewer(serverPreviewUrl)"
+          />
+          <div v-if="serverPreviewState === 'loading'" class="p-4 text-sm text-bordeaux/70">Loading…</div>
+          <div v-else-if="serverPreviewState === 'missing'" class="p-4 text-sm text-bordeaux/70">
+            Pas de menu pour aujourd'hui.
           </div>
         </div>
-      </div>
 
-      <div v-if="serverPreviewUrl" class="overflow-hidden rounded-2xl bg-black/10">
-        <img
-          v-show="serverPreviewState === 'loaded'"
-          class="w-full object-cover"
-          :src="serverPreviewUrl"
-          alt="Existing menu photo"
-          @load="serverPreviewState = 'loaded'"
-          @error="serverPreviewState = 'missing'"
-          @click="openViewer(serverPreviewUrl)"
-        />
-        <div v-if="serverPreviewState === 'loading'" class="p-4 text-sm text-bordeaux/70">Loading…</div>
-        <div v-else-if="serverPreviewState === 'missing'" class="p-4 text-sm text-bordeaux/70">
-          Pas de menu pour aujourd'hui, cliquez sur l'icône caméra pour en prendre un.
+        <div class="flex justify-end">
+          <button
+            class="rounded-full bg-black/10 px-3 py-2 text-xs text-bordeaux/70 hover:bg-black/15"
+            type="button"
+            @click="router.push('/history')"
+          >
+            Voir tout
+          </button>
         </div>
       </div>
 
@@ -199,6 +226,7 @@ async function onTakePhotoChange(e: Event) {
 
     <label class="fixed bottom-24 left-1/2 z-50 -translate-x-1/2">
       <input
+        ref="cameraInputEl"
         class="hidden"
         type="file"
         accept="image/*"

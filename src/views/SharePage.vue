@@ -124,7 +124,7 @@ async function logout() {
 <template>
   <main class="mx-auto max-w-lg p-6 pb-28">
     <div class="flex items-center justify-between">
-      <div class="text-2xl font-semibold">Paramètres</div>
+      <div class="text-2xl font-semibold">QR / Partager</div>
       <button
         class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-black/10 text-bordeaux hover:bg-black/15"
         type="button"

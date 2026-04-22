@@ -178,8 +178,8 @@ async function logout() {
     </div>
 
     <section v-if="tab === 'public'" class="mt-6 rounded-2xl bg-black/5 p-5">
-      <h2 class="text-lg font-semibold">Public link</h2>
-      <p class="mt-1 text-sm text-bordeaux/70">Share with customers.</p>
+      <h2 class="text-lg font-semibold">Lien public</h2>
+      <p class="mt-1 text-sm text-bordeaux/70">À partager avec vos clients.</p>
 
       <div v-if="publicPageUrl" class="mt-4 break-all rounded-xl bg-black/10 p-3 font-mono text-xs text-bordeaux/70">
         {{ publicPageUrl }}
@@ -191,10 +191,10 @@ async function logout() {
 
       <div class="mt-4 grid grid-cols-2 gap-2">
         <button class="rounded-xl bg-black/10 px-4 py-3 text-sm hover:bg-black/15" :disabled="!publicPageUrl" @click="copyText(publicPageUrl)">
-          Copy
+          Copier
         </button>
         <button class="rounded-xl bg-black/10 px-4 py-3 text-sm hover:bg-black/15" :disabled="!publicPageUrl" @click="openLink(publicPageUrl)">
-          Open
+          Ouvrir
         </button>
       </div>
     </section>
@@ -229,11 +229,11 @@ async function logout() {
     </section>
 
     <section v-if="tab === 'team'" class="mt-6 rounded-2xl bg-black/5 p-5">
-      <h2 class="text-lg font-semibold">Worker access</h2>
-      <p class="mt-1 text-sm text-bordeaux/70">Staff upload-only key (regeneratable).</p>
+      <h2 class="text-lg font-semibold">Accès équipe</h2>
+      <p class="mt-1 text-sm text-bordeaux/70">Clé pour l’équipe (upload uniquement, régénérable).</p>
 
       <div v-if="!auth.isMaster" class="mt-4 rounded-xl bg-black/10 p-4 text-sm text-bordeaux/70">
-        Only the master account can view and regenerate the worker key.
+        Seul le compte maître peut voir et régénérer la clé.
       </div>
 
       <template v-else>
@@ -251,7 +251,7 @@ async function logout() {
 
         <div class="mt-4 grid gap-3">
           <button class="rounded-xl bg-black/10 px-4 py-3 hover:bg-black/15" @click="regenerateWorkerKey">
-            Regenerate worker key
+            Régénérer la clé
           </button>
         </div>
       </template>

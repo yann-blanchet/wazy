@@ -107,8 +107,26 @@ function formatUpdatedAt(ts: number) {
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
+function formatRelativeUpdatedAt(ts: number) {
+  const now = Date.now()
+  const diffMs = Math.max(0, now - ts)
+  const diffSec = Math.floor(diffMs / 1000)
+  if (diffSec < 60) return "à l'instant"
+
+  const diffMin = Math.floor(diffSec / 60)
+  if (diffMin < 60) return `il y a ${diffMin} min`
+
+  const diffH = Math.floor(diffMin / 60)
+  if (diffH < 24) return `il y a ${diffH} h`
+
+  const diffD = Math.floor(diffH / 24)
+  if (diffD <= 7) return `il y a ${diffD} j`
+
+  return formatUpdatedAt(ts)
+}
+
 const selectedMenu = computed(() => menus.value.find((m) => m.date === selectedDate.value) ?? null)
-const lastUpdatedText = computed(() => (selectedMenu.value ? formatUpdatedAt(selectedMenu.value.createdAt) : '—'))
+const lastUpdatedText = computed(() => (selectedMenu.value ? formatRelativeUpdatedAt(selectedMenu.value.createdAt) : '—'))
 
 const quickHistoryDates = computed(() => {
   return menus.value
@@ -175,44 +193,55 @@ async function onTakePhotoChange(e: Event) {
 </script>
 
 <template>
-  <main class="mx-auto max-w-lg p-6 pb-28">
+  <main class="mx-auto flex min-h-dvh max-w-lg flex-col p-6 pb-28">
     <div class="flex items-center justify-between">
       <h1 class="text-2xl font-bold">WAZY</h1>
       <div class="text-sm font-medium text-bordeaux">{{ restaurantName || auth.id || '—' }}</div>
     </div>
 
-    <div class="mt-6 grid gap-4">
+    <div class="mt-6 grid flex-1 gap-4">
 
 
-      <div class="grid gap-2 rounded-xl bg-black/5 p-4">
+      <div class="flex flex-1 flex-col gap-2 rounded-xl bg-black/5 p-4">
         <div class="flex items-center justify-between gap-3">
           <div class="text-xs uppercase tracking-wide text-bordeaux/70">Menu du jour</div>
           <div class="text-xs text-bordeaux/70">Dernière mise à jour: {{ lastUpdatedText }}</div>
         </div>
 
-        <div v-if="serverPreviewUrl" class="overflow-hidden rounded-2xl bg-black/10">
+        <div class="flex flex-1 overflow-hidden rounded-2xl bg-black/10">
           <img
+            v-if="serverPreviewUrl"
             v-show="serverPreviewState === 'loaded'"
-            class="w-full object-cover"
+            class="h-full w-full object-cover"
             :src="serverPreviewUrl"
             alt="Photo du menu existant"
             @load="serverPreviewState = 'loaded'"
             @error="serverPreviewState = 'missing'"
             @click="openViewer(serverPreviewUrl)"
           />
-          <div v-if="serverPreviewState === 'loading'" class="p-4 text-sm text-bordeaux/70">Chargement…</div>
-          <div v-else-if="serverPreviewState === 'missing'" class="p-4 text-sm text-bordeaux/70">
+          <div v-if="!serverPreviewUrl || serverPreviewState === 'loading'" class="flex flex-1 items-center justify-center p-4 text-sm text-bordeaux/70">
+            {{ serverPreviewUrl ? 'Chargement…' : "Pas de menu pour aujourd'hui." }}
+          </div>
+          <div v-else-if="serverPreviewState === 'missing'" class="flex flex-1 items-center justify-center p-4 text-sm text-bordeaux/70">
             Pas de menu pour aujourd'hui.
           </div>
         </div>
 
-        <div class="flex justify-end">
+        <div class="mt-auto grid grid-cols-3 items-center pt-2">
+          <div />
           <button
-            class="rounded-full bg-black/10 px-3 py-2 text-xs text-bordeaux/70 hover:bg-black/15"
+            class="justify-self-center rounded-full bg-bordeaux px-4 py-2 text-xs font-medium text-beige hover:bg-bordeaux/90"
+            type="button"
+            @click="triggerCamera"
+          >
+            Ajouter un menu du jour
+          </button>
+          <button
+            class="justify-self-end px-3 py-2 text-xs text-bordeaux/70"
             type="button"
             @click="router.push('/history')"
           >
-            Voir tout
+            Voir tous les menus
           </button>
         </div>
       </div>
@@ -224,43 +253,14 @@ async function onTakePhotoChange(e: Event) {
       
     </div>
 
-    <label class="fixed bottom-24 left-1/2 z-50 -translate-x-1/2">
-      <input
-        ref="cameraInputEl"
-        class="hidden"
-        type="file"
-        accept="image/*"
-        capture="environment"
-        @change="onTakePhotoChange"
-      />
-      <span
-        class="flex h-16 w-16 items-center justify-center rounded-full bg-bordeaux text-beige shadow-lg shadow-black/30 ring-1 ring-black/10 hover:bg-bordeaux/90"
-      >
-        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="h-7 w-7">
-          <path
-            d="M9 7l1.2-2.1c.2-.5.7-.9 1.3-.9h1c.6 0 1.1.4 1.3.9L15 7"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-          <path
-            d="M6 7h12a2 2 0 012 2v9a2 2 0 01-2 2H6a2 2 0 01-2-2V9a2 2 0 012-2z"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-          <path
-            d="M12 17a3.5 3.5 0 100-7 3.5 3.5 0 000 7z"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        </svg>
-      </span>
-    </label>
+    <input
+      ref="cameraInputEl"
+      class="hidden"
+      type="file"
+      accept="image/*"
+      capture="environment"
+      @change="onTakePhotoChange"
+    />
 
     <div v-if="viewerOpen" class="fixed inset-0 z-[70] bg-black">
       <img class="absolute inset-0 h-full w-full object-contain" :src="viewerUrl" alt="Full screen menu" />

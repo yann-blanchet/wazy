@@ -24,6 +24,8 @@ const workerKeyValid = computed(() => {
   return /^[a-zA-Z0-9_-]+$/.test(k)
 })
 
+const workerKeyHasInput = computed(() => workerKeyTrimmed.value.length > 0)
+
 const queued = ref<number>(0)
 const statsMenusCount = ref<number>(0)
 const statsPhotosCount = ref<number>(0)
@@ -75,14 +77,6 @@ const publicPageUrl = computed(() => {
   return u.toString()
 })
 
-const workerLoginUrl = computed(() => {
-  if (!workerKey.value) return ''
-  const u = new URL(apiOrigin())
-  u.pathname = '/login'
-  u.searchParams.set('key', workerKey.value)
-  return u.toString()
-})
-
 async function refreshPublicQr() {
   if (!publicPageUrl.value) {
     publicQrDataUrl.value = ''
@@ -117,13 +111,6 @@ onMounted(async () => {
   }
 })
 
-async function regenerateWorkerKey() {
-  if (!auth.isMaster) throw new Error('forbidden')
-  const res = await auth.regenerateWorkerKey()
-  workerKey.value = res.workerKey
-  workerKeyStatus.value = ''
-}
-
 async function saveWorkerKey() {
   if (!auth.isMaster) return
   workerKeySaving.value = true
@@ -131,14 +118,14 @@ async function saveWorkerKey() {
   try {
     const res = await auth.setWorkerKey(workerKeyTrimmed.value)
     workerKey.value = res.workerKey
-    workerKeyStatus.value = 'Clé mise à jour.'
+    workerKeyStatus.value = 'Code de connexion mis à jour.'
   } catch (err) {
     const raw = err instanceof Error ? err.message : 'save_error'
-    if (raw === 'invalid_worker_key') workerKeyStatus.value = 'Clé invalide. Utilisez 6 à 64 caractères (lettres, chiffres, _ ou -).'
-    else if (raw === 'key_taken') workerKeyStatus.value = 'Cette clé est déjà utilisée. Choisissez-en une autre.'
-    else if (raw === 'missing_auth') workerKeyStatus.value = 'Session expirée. Reconnectez-vous avec la clé maître.'
+    if (raw === 'invalid_worker_key') workerKeyStatus.value = 'Code invalide. Utilisez 6 à 64 caractères (lettres, chiffres, _ ou -).'
+    else if (raw === 'key_taken') workerKeyStatus.value = 'Ce code est déjà utilisé. Choisissez-en un autre.'
+    else if (raw === 'missing_auth') workerKeyStatus.value = 'Session expirée. Reconnectez-vous avec le compte maître.'
     else if (raw === 'forbidden') workerKeyStatus.value = 'Action réservée au compte maître.'
-    else if (raw === 'invalid_key') workerKeyStatus.value = 'Clé invalide. Reconnectez-vous.'
+    else if (raw === 'invalid_key') workerKeyStatus.value = 'Code invalide. Reconnectez-vous.'
     else workerKeyStatus.value = raw
   } finally {
     workerKeySaving.value = false
@@ -247,15 +234,14 @@ async function logout() {
 
     <section v-if="tab === 'team'" class="mt-6 rounded-2xl bg-black/5 p-5">
       <h2 class="text-lg font-semibold">Accès équipe</h2>
-      <p class="mt-1 text-sm text-bordeaux/70">Lien de connexion pour l’équipe (upload uniquement).</p>
 
       <div v-if="!auth.isMaster" class="mt-4 rounded-xl bg-black/10 p-4 text-sm text-bordeaux/70">
-        Seul le compte maître peut voir et régénérer la clé.
+        Seul le compte maître peut voir et modifier le code de connexion.
       </div>
 
       <template v-else>
         <div class="mt-4 grid gap-2">
-          <div class="text-sm text-bordeaux/70">Clé</div>
+          <div class="text-sm text-bordeaux/70">Code de connexion pour l'équipe</div>
           <input
             v-model="workerKey"
             class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 font-mono text-sm text-bordeaux outline-none focus:border-bordeaux/60"
@@ -264,33 +250,19 @@ async function logout() {
             spellcheck="false"
           />
           <div class="text-xs text-bordeaux/70">6–64 caractères. Lettres, chiffres, <span class="font-mono">_</span> et <span class="font-mono">-</span> uniquement.</div>
-        </div>
-
-        <div v-if="workerLoginUrl" class="mt-3 break-all rounded-xl bg-black/10 p-3 font-mono text-xs text-bordeaux/70">
-          {{ workerLoginUrl }}
-        </div>
-
-        <div class="mt-4 grid grid-cols-2 gap-2">
-          <button class="rounded-xl bg-black/10 px-4 py-3 text-sm hover:bg-black/15" :disabled="!workerLoginUrl" @click="copyText(workerLoginUrl)">
-            Copier le lien
-          </button>
-          <button class="rounded-xl bg-black/10 px-4 py-3 text-sm hover:bg-black/15" :disabled="!workerLoginUrl" @click="openLink(workerLoginUrl)">
-            Ouvrir
-          </button>
+          <div v-if="workerKeyHasInput" class="text-xs" :class="workerKeyValid ? 'text-green-700' : 'text-red-700'">
+            {{ workerKeyValid ? 'Code valide' : 'Code invalide' }}
+          </div>
         </div>
 
         <div class="mt-4 grid gap-3">
           <button
             class="rounded-xl bg-black/10 px-4 py-3 hover:bg-black/15"
             type="button"
-            :disabled="workerKeySaving || !workerKeyValid"
+            :disabled="workerKeySaving || !workerKeyHasInput || !workerKeyValid"
             @click="saveWorkerKey"
           >
-            Enregistrer la clé
-          </button>
-
-          <button class="rounded-xl bg-black/10 px-4 py-3 hover:bg-black/15" @click="regenerateWorkerKey">
-            Régénérer la clé
+            Enregistrer le code
           </button>
 
           <div v-if="workerKeyStatus" class="text-sm text-bordeaux/70">{{ workerKeyStatus }}</div>

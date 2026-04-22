@@ -24,10 +24,26 @@ const photosStatus = ref<string>('')
 const restaurantPhotos = ref<{ id: string; createdAt: number }[]>([])
 const tab = ref<'infos' | 'carte' | 'photos'>('infos')
 
+function formatUpdatedAt(ts: number) {
+  const d = new Date(ts)
+  const pad = (v: number) => String(v).padStart(2, '0')
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+const permanentCount = computed(() => permanentMenus.value.length)
+const permanentLastUpdatedText = computed(() => {
+  const latest = permanentMenus.value.reduce<number | null>((acc, m) => {
+    if (!m?.createdAt) return acc
+    if (acc === null) return m.createdAt
+    return m.createdAt > acc ? m.createdAt : acc
+  }, null)
+  return latest ? formatUpdatedAt(latest) : '—'
+})
+
 const viewerOpen = ref<boolean>(false)
 const viewerSrc = ref<string>('')
-const viewerKind = ref<'photo' | 'carte' | null>(null)
 const viewerId = ref<string>('')
+const viewerKind = ref<'photo' | 'carte' | null>(null)
 
 function normalizeTab(v: unknown): 'infos' | 'carte' | 'photos' {
   return v === 'carte' || v === 'photos' ? v : 'infos'
@@ -48,8 +64,8 @@ function openViewer(kind: 'photo' | 'carte', id: string, createdAt: number) {
 function closeViewer() {
   viewerOpen.value = false
   viewerSrc.value = ''
-  viewerKind.value = null
   viewerId.value = ''
+  viewerKind.value = null
 }
 
 async function deleteFromViewer() {
@@ -146,7 +162,7 @@ onMounted(async () => {
     cuisineType.value = res.restaurant.cuisineType ?? ''
 
     if (auth.id) {
-      const pub = await apiFetch<{ permanentMenus?: { id: string; createdAt: number }[]; photos?: { id: string; createdAt: number }[] }>(
+      const pub = await apiFetch<{ photos?: { id: string; createdAt: number }[]; permanentMenus?: { id: string; createdAt: number }[] }>(
         `/api/public/${auth.id}`,
         {
         method: 'GET'
@@ -360,20 +376,24 @@ async function saveProfile() {
       <div class="flex items-center justify-between gap-3">
         <h2 class="text-lg font-semibold">Carte</h2>
 
-        <label class="shrink-0">
-          <input class="hidden" type="file" accept="image/*" @change="onPermanentPick" />
-          <span
-            class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-black/10 text-bordeaux hover:bg-black/15"
-            :class="!auth.isMaster ? 'pointer-events-none opacity-60' : ''"
-            title="Ajouter une carte permanente"
-            aria-label="Ajouter une carte permanente"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5">
-              <path d="M12 5v14" />
-              <path d="M5 12h14" />
-            </svg>
-          </span>
-        </label>
+        <div class="flex items-center gap-3">
+          <div class="text-xs text-bordeaux/70">{{ permanentCount }} • MAJ: {{ permanentLastUpdatedText }}</div>
+
+          <label class="shrink-0">
+            <input class="hidden" type="file" accept="image/*" @change="onPermanentPick" />
+            <span
+              class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-black/10 text-bordeaux hover:bg-black/15"
+              :class="!auth.isMaster ? 'pointer-events-none opacity-60' : ''"
+              title="Ajouter une carte permanente"
+              aria-label="Ajouter une carte permanente"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5">
+                <path d="M12 5v14" />
+                <path d="M5 12h14" />
+              </svg>
+            </span>
+          </label>
+        </div>
       </div>
       <p class="mt-1 text-sm text-bordeaux/70">Toutes les cartes permanentes seront affichées ici.</p>
 

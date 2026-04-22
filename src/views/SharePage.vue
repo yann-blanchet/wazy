@@ -13,6 +13,7 @@ const tab = ref<'public' | 'team' | 'stats'>('public')
 
 const workerKey = ref<string>('')
 const qrDataUrl = ref<string>('')
+const publicQrDataUrl = ref<string>('')
 
 const queued = ref<number>(0)
 const statsMenusCount = ref<number>(0)
@@ -84,6 +85,17 @@ async function refreshQr() {
   })
 }
 
+async function refreshPublicQr() {
+  if (!publicPageUrl.value) {
+    publicQrDataUrl.value = ''
+    return
+  }
+  publicQrDataUrl.value = await QRCode.toDataURL(publicPageUrl.value, {
+    margin: 1,
+    width: 512
+  })
+}
+
 async function copyText(v: string) {
   if (!v) return
   await navigator.clipboard.writeText(v)
@@ -96,6 +108,7 @@ function openLink(v: string) {
 
 onMounted(async () => {
   await refreshStats()
+  await refreshPublicQr()
   try {
     if (!auth.key) return
     if (!auth.isMaster) return
@@ -170,6 +183,10 @@ async function logout() {
 
       <div v-if="publicPageUrl" class="mt-4 break-all rounded-xl bg-black/10 p-3 font-mono text-xs text-bordeaux/70">
         {{ publicPageUrl }}
+      </div>
+
+      <div v-if="publicQrDataUrl" class="mt-4 overflow-hidden rounded-xl bg-white p-3">
+        <img class="w-full" :src="publicQrDataUrl" alt="Public link QR" />
       </div>
 
       <div class="mt-4 grid grid-cols-2 gap-2">

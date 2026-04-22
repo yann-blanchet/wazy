@@ -10,11 +10,6 @@ const showBottomNav = computed(() => {
 })
 
 const active = computed(() => {
-  if (route.path === '/restaurant') {
-    const tab = route.query.tab
-    if (tab === 'carte') return '/restaurant?tab=carte'
-    return '/restaurant?tab=infos'
-  }
   return route.path
 })
 </script>
@@ -28,7 +23,7 @@ const active = computed(() => {
       class="fixed inset-x-0 bottom-0 z-[60] border-t border-black/10 bg-beige/95 px-4 py-2 backdrop-blur"
       style="padding-bottom: max(env(safe-area-inset-bottom), 8px)"
     >
-      <div class="mx-auto grid max-w-lg grid-cols-4 gap-2">
+      <div class="mx-auto grid max-w-lg grid-cols-3 gap-2">
         <button
           class="grid justify-items-center gap-1 rounded-xl px-2 py-2 text-[11px]"
           :class="active === '/dashboard' ? 'bg-black/5 text-bordeaux' : 'text-bordeaux/70 hover:bg-black/5'"
@@ -42,20 +37,7 @@ const active = computed(() => {
         </button>
         <button
           class="grid justify-items-center gap-1 rounded-xl px-2 py-2 text-[11px]"
-          :class="active === '/restaurant?tab=carte' ? 'bg-black/5 text-bordeaux' : 'text-bordeaux/70 hover:bg-black/5'"
-          @click="router.push({ path: '/restaurant', query: { tab: 'carte' } })"
-        >
-          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5">
-            <path d="M6 4h12a2 2 0 012 2v13a1 1 0 01-1 1H7a1 1 0 01-1-1V6a2 2 0 012-2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-            <path d="M8 8h8" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-            <path d="M8 12h8" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-            <path d="M8 16h5" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-          </svg>
-          Carte
-        </button>
-        <button
-          class="grid justify-items-center gap-1 rounded-xl px-2 py-2 text-[11px]"
-          :class="active === '/restaurant?tab=infos' ? 'bg-black/5 text-bordeaux' : 'text-bordeaux/70 hover:bg-black/5'"
+          :class="active === '/restaurant' ? 'bg-black/5 text-bordeaux' : 'text-bordeaux/70 hover:bg-black/5'"
           @click="router.push({ path: '/restaurant', query: { tab: 'infos' } })"
         >
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5">

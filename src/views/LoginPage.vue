@@ -54,7 +54,7 @@ async function login() {
         <span class="text-sm text-bordeaux/70">Choose your public id</span>
         <input
           v-model="desiredId"
-          class="rounded-xl border border-white/10 bg-white/5 px-3 py-3 font-mono text-sm outline-none focus:border-emerald-400/60"
+          class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 font-mono text-sm text-bordeaux outline-none focus:border-bordeaux/60"
           placeholder="e.g. le-bistrot"
           autocomplete="off"
           autocapitalize="off"
@@ -63,7 +63,7 @@ async function login() {
       </label>
 
       <button
-        class="rounded-xl bg-emerald-500 px-4 py-3 font-medium text-emerald-950 hover:bg-emerald-400"
+        class="rounded-xl bg-bordeaux px-4 py-3 font-medium text-beige hover:bg-bordeaux/90"
         @click="createAccount"
       >
         Create → get master key
@@ -75,7 +75,7 @@ async function login() {
 
       <div v-if="masterKeyShown" class="rounded-xl bg-black/10 p-4">
         <div class="text-sm text-bordeaux/70">Master key (shown once):</div>
-        <div class="mt-2 break-all font-mono text-sm">{{ masterKeyShown }}</div>
+        <div class="mt-2 break-all font-mono text-sm text-bordeaux">{{ masterKeyShown }}</div>
         <button
           class="mt-3 rounded-lg bg-black/10 px-3 py-2 text-sm hover:bg-black/15"
           @click="useMasterKeyToLogin"
@@ -90,7 +90,7 @@ async function login() {
         <span class="text-sm text-bordeaux/70">Key</span>
         <input
           v-model="key"
-          class="rounded-xl border border-white/10 bg-white/5 px-3 py-3 font-mono text-sm outline-none focus:border-emerald-400/60"
+          class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 font-mono text-sm text-bordeaux outline-none focus:border-bordeaux/60"
           placeholder="{id} or {id}-master"
           autocomplete="off"
           autocapitalize="off"

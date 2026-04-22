@@ -12,9 +12,30 @@ const key = ref('')
 const desiredId = ref('')
 const createError = ref('')
 
+const autoLoginTried = ref(false)
+
 watchEffect(() => {
   const qKey = route.query.key
-  if (typeof qKey === 'string' && qKey.length > 0) key.value = qKey
+  if (typeof qKey === 'string' && qKey.length > 0) {
+    key.value = qKey
+
+    if (!autoLoginTried.value) {
+      autoLoginTried.value = true
+      auth
+        .loginWithKey(qKey)
+        .then(async () => {
+          await router.replace('/dashboard')
+        })
+        .catch(() => {
+          // keep user on page to allow manual retry
+        })
+        .finally(async () => {
+          if (route.path === '/login' && route.query.key) {
+            await router.replace({ path: '/login', query: {} })
+          }
+        })
+    }
+  }
 })
 
 const masterKeyShown = ref<string | null>(null)

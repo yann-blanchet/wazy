@@ -76,6 +76,16 @@ export const useAuthStore = defineStore('auth', {
         key: this.key
       })
       return res
+    },
+
+    async setWorkerKey(workerKey: string) {
+      if (!this.key) throw new Error('missing_auth')
+      const res = await apiFetch<{ workerKey: string }>('/api/worker/set-key', {
+        method: 'POST',
+        key: this.key,
+        body: { workerKey }
+      })
+      return res
     }
   }
 })

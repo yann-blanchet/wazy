@@ -145,6 +145,11 @@ function isValidRestaurantId(id: string) {
   return /^[a-zA-Z0-9_-]+$/.test(id)
 }
 
+function isValidWorkerKey(k: string) {
+  if (k.length < 6 || k.length > 64) return false
+  return /^[a-zA-Z0-9_-]+$/.test(k)
+}
+
 async function readJsonOptional<T>(req: Request): Promise<T | null> {
   const text = await req.text()
   if (!text) return null
@@ -294,6 +299,36 @@ async function handle(req: Request, env: Env): Promise<Response> {
     await putRestaurant(env, auth.rec)
     await deleteKeyIndex(env, oldWorkerKey)
     await putKeyIndex(env, nextWorkerKey, { id: auth.rec.id, role: 'worker' })
+
+    return json({ workerKey: auth.rec.workerKey })
+  }
+
+  if (url.pathname === '/api/worker/set-key' && req.method === 'POST') {
+    const key = parseAuthKeyFromHeader(req)
+    if (!key) return json({ error: 'missing_auth' }, { status: 401 })
+
+    const auth = await authRestaurant(env, key)
+    if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
+    if (auth.role !== 'master') return json({ error: 'forbidden' }, { status: 403 })
+
+    const body = await readJsonOptional<{ workerKey?: string }>(req)
+    const nextWorkerKey = normalizeKey(String(body?.workerKey ?? ''))
+    if (!isValidWorkerKey(nextWorkerKey)) return json({ error: 'invalid_worker_key' }, { status: 400 })
+    if (nextWorkerKey === auth.rec.masterKey) return json({ error: 'invalid_worker_key' }, { status: 400 })
+
+    const existing = await getKeyIndex(env, nextWorkerKey)
+    if (existing && !(existing.id === auth.rec.id && existing.role === 'worker')) {
+      return json({ error: 'key_taken' }, { status: 409 })
+    }
+
+    const oldWorkerKey = auth.rec.workerKey
+    auth.rec.workerKey = nextWorkerKey
+    await putRestaurant(env, auth.rec)
+
+    if (oldWorkerKey !== nextWorkerKey) {
+      await deleteKeyIndex(env, oldWorkerKey)
+      await putKeyIndex(env, nextWorkerKey, { id: auth.rec.id, role: 'worker' })
+    }
 
     return json({ workerKey: auth.rec.workerKey })
   }

@@ -227,8 +227,6 @@ onMounted(async () => {
         <button
           class="w-full rounded-xl bg-bordeaux px-4 py-3 text-sm font-semibold text-beige shadow-lg shadow-black/20 hover:bg-bordeaux/90"
           type="button"
-          :disabled="!auth.isMaster"
-          :class="!auth.isMaster ? 'opacity-60' : ''"
           @click="triggerPhotoPick"
         >
           Ajouter une photo

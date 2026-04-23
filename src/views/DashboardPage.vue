@@ -196,7 +196,11 @@ async function onTakePhotoChange(e: Event) {
   <main class="mx-auto flex min-h-dvh max-w-lg flex-col p-6 pb-28">
     <div class="flex items-center justify-between">
       <h1 class="text-2xl font-bold">WAZY</h1>
-      <div class="text-sm font-medium text-bordeaux">{{ restaurantName || auth.id || '—' }}</div>
+    </div>
+
+    <div class="mt-4 rounded-xl bg-black/5 px-4 py-3">
+      <div class="text-xs uppercase tracking-wide text-bordeaux/70">Restaurant</div>
+      <div class="mt-1 text-base font-semibold text-bordeaux">{{ restaurantName || auth.id || '—' }}</div>
     </div>
 
     <div class="mt-6 grid flex-1 gap-4">

@@ -8,15 +8,25 @@ import PublicRestaurantPage from './views/PublicRestaurantPage.vue'
 import HistoryPage from './views/HistoryPage.vue'
 import EnhancePage from './views/EnhancePage.vue'
 import OnboardingPage from './views/OnboardingPage.vue'
-import RestaurantPage from './views/RestaurantPage.vue'
-import SharePage from './views/SharePage.vue'
+import InfosPage from './views/InfosPage.vue'
+import CarteRestoPage from './views/CarteRestoPage.vue'
+import GaleriePage from './views/GaleriePage.vue'
+import LienPublicPage from './views/LienPublicPage.vue'
+import EquipePage from './views/EquipePage.vue'
+import StatsPage from './views/StatsPage.vue'
+import LogoutPage from './views/LogoutPage.vue'
 
 export const routes: RouteRecordRaw[] = [
   { path: '/', name: 'home', component: HomePage },
   { path: '/login', name: 'login', component: LoginPage },
   { path: '/dashboard', name: 'dashboard', component: DashboardPage },
-  { path: '/restaurant', name: 'restaurant', component: RestaurantPage },
-  { path: '/share', name: 'share', component: SharePage },
+  { path: '/infos', name: 'infos', component: InfosPage },
+  { path: '/carte', name: 'carte', component: CarteRestoPage },
+  { path: '/galerie', name: 'galerie', component: GaleriePage },
+  { path: '/lien-public', name: 'lien-public', component: LienPublicPage },
+  { path: '/equipe', name: 'equipe', component: EquipePage },
+  { path: '/stats', name: 'stats', component: StatsPage },
+  { path: '/logout', name: 'logout', component: LogoutPage },
   { path: '/enhance', name: 'enhance', component: EnhancePage },
   { path: '/history', name: 'history', component: HistoryPage },
   { path: '/onboarding', name: 'onboarding', component: OnboardingPage },

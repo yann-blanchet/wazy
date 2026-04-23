@@ -18,7 +18,20 @@ const router = createRouter({
 const pinia = createPinia()
 
 router.beforeEach((to) => {
-  if (to.path === '/dashboard' || to.path === '/restaurant' || to.path === '/share' || to.path === '/settings' || to.path === '/history' || to.path === '/enhance' || to.path === '/onboarding') {
+  if (
+    to.path === '/dashboard' ||
+    to.path === '/infos' ||
+    to.path === '/carte' ||
+    to.path === '/galerie' ||
+    to.path === '/lien-public' ||
+    to.path === '/equipe' ||
+    to.path === '/stats' ||
+    to.path === '/logout' ||
+    to.path === '/settings' ||
+    to.path === '/history' ||
+    to.path === '/enhance' ||
+    to.path === '/onboarding'
+  ) {
     const auth = useAuthStore(pinia)
     if (!auth.isAuthed) return { path: '/login' }
   }

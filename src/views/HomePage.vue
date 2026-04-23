@@ -6,7 +6,7 @@ const router = useRouter()
 
 <template>
   <main class="mx-auto max-w-lg p-6">
-    <h1 class="text-3xl font-semibold tracking-tight">Vazy</h1>
+    <h1 class="text-3xl font-semibold tracking-tight">Wazy</h1>
     <p class="mt-2 text-bordeaux/70">
       Publiez le menu du jour avec une seule photo.
     </p>
@@ -27,8 +27,6 @@ const router = useRouter()
       </button>
     </div>
 
-    <p class="mt-8 text-sm text-bordeaux/70">
-      Astuce : l’équipe peut se connecter via QR code.
-    </p>
+    
   </main>
 </template>

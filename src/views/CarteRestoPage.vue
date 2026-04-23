@@ -12,12 +12,6 @@ const enhanceSession = useEnhanceSessionStore()
 const permanentStatus = ref<string>('')
 const permanentMenus = ref<{ id: string; createdAt: number }[]>([])
 
-const permanentCameraInputEl = ref<HTMLInputElement | null>(null)
-
-function triggerPermanentCamera() {
-  permanentCameraInputEl.value?.click()
-}
-
 function formatUpdatedAt(ts: number) {
   const d = new Date(ts)
   const pad = (v: number) => String(v).padStart(2, '0')
@@ -34,10 +28,6 @@ const permanentLastUpdatedText = computed(() => {
   return latest ? formatUpdatedAt(latest) : '—'
 })
 
-const viewerOpen = ref<boolean>(false)
-const viewerSrc = ref<string>('')
-const viewerId = ref<string>('')
-
 function apiFetchBase() {
   const v = import.meta.env.VITE_API_BASE
   const base = typeof v === 'string' && v.length > 0 ? v : 'https://vazy.instant-report.workers.dev'
@@ -49,6 +39,10 @@ function permanentMenuItemUrl(pid: string, t?: number) {
   const q = typeof t === 'number' && t > 0 ? `?t=${t}` : ''
   return `${apiFetchBase()}/api/public/${auth.id}/permanent-menu/${pid}${q}`
 }
+
+const viewerOpen = ref<boolean>(false)
+const viewerSrc = ref<string>('')
+const viewerId = ref<string>('')
 
 function openViewer(id: string, createdAt: number) {
   viewerId.value = id
@@ -62,26 +56,15 @@ function closeViewer() {
   viewerId.value = ''
 }
 
-async function deletePermanentMenu(pid: string) {
-  try {
-    if (!auth.isMaster) throw new Error('forbidden')
-    if (!auth.key) throw new Error('missing_auth')
-    permanentStatus.value = 'Deleting…'
-    await apiFetch<{ ok: boolean; deleted: boolean }>(`/api/permanent-menu?id=${encodeURIComponent(pid)}`, {
-      method: 'DELETE',
-      key: auth.key
-    })
-    permanentMenus.value = permanentMenus.value.filter((x) => x.id !== pid)
-    permanentStatus.value = 'Deleted.'
-  } catch (err) {
-    permanentStatus.value = err instanceof Error ? err.message : 'delete_error'
-  }
-}
-
 async function deleteFromViewer() {
   if (!viewerId.value) return
   await deletePermanentMenu(viewerId.value)
   closeViewer()
+}
+
+async function goBack() {
+  if (window.history.length > 1) router.back()
+  else await router.push('/dashboard')
 }
 
 async function onPermanentPick(e: Event) {
@@ -100,90 +83,83 @@ async function onPermanentPick(e: Event) {
   }
 }
 
+async function deletePermanentMenu(pid: string) {
+  try {
+    if (!auth.isMaster) throw new Error('forbidden')
+    if (!auth.key) throw new Error('missing_auth')
+    permanentStatus.value = 'Suppression…'
+    await apiFetch<{ ok: boolean; deleted: boolean }>(`/api/permanent-menu?id=${encodeURIComponent(pid)}`, {
+      method: 'DELETE',
+      key: auth.key
+    })
+    permanentMenus.value = permanentMenus.value.filter((x) => x.id !== pid)
+    permanentStatus.value = 'Supprimé.'
+  } catch (err) {
+    permanentStatus.value = err instanceof Error ? err.message : 'delete_error'
+  }
+}
+
 onMounted(async () => {
-  await router.replace({ path: '/restaurant', query: { tab: 'carte' } })
   try {
     if (!auth.id) return
     const pub = await apiFetch<{ permanentMenus?: { id: string; createdAt: number }[] }>(`/api/public/${auth.id}`, {
       method: 'GET'
     })
     permanentMenus.value = Array.isArray(pub.permanentMenus) ? pub.permanentMenus : []
-  } catch (err) {
-    permanentStatus.value = err instanceof Error ? err.message : 'load_error'
+  } catch (e) {
+    permanentStatus.value = e instanceof Error ? e.message : 'load_error'
   }
 })
 </script>
 
 <template>
   <main class="mx-auto max-w-lg p-6 pb-28">
-    <div class="flex items-center justify-between gap-3">
-      <h1 class="text-2xl font-bold">Carte</h1>
-      <div class="text-xs text-bordeaux/70">{{ permanentCount }} • MAJ: {{ permanentLastUpdatedText }}</div>
+    <div class="flex items-center justify-between">
+      <button class="text-sm text-bordeaux/70 underline" type="button" @click="goBack">Retour</button>
+      <div class="text-2xl font-semibold">Carte</div>
+      <div class="w-12" />
     </div>
 
-    <p class="mt-1 text-sm text-bordeaux/70">Toutes les cartes permanentes seront affichées ici.</p>
-
-    <div class="mt-4">
-      <div v-if="permanentMenus.length === 0" class="rounded-xl bg-black/10 p-4 text-sm text-bordeaux/70">
-        Aucune carte permanente pour le moment.
+    <section class="mt-6 rounded-2xl bg-black/5 p-5">
+      <div class="flex items-center justify-between gap-3">
+        <h2 class="text-lg font-semibold">Carte</h2>
+        <div class="text-xs text-bordeaux/70">{{ permanentCount }} • MAJ: {{ permanentLastUpdatedText }}</div>
       </div>
-      <div v-else class="grid grid-cols-1 gap-3">
-        <div v-for="m in permanentMenus" :key="m.id" class="overflow-hidden rounded-2xl bg-black/10">
-          <div class="aspect-[4/5] overflow-hidden">
-            <button class="block h-full w-full" type="button" @click="openViewer(m.id, m.createdAt)">
-              <img class="h-full w-full object-cover" :src="permanentMenuItemUrl(m.id, m.createdAt)" :alt="m.id" />
-            </button>
+      <p class="mt-1 text-sm text-bordeaux/70">Toutes les cartes permanentes seront affichées ici.</p>
+
+      <div class="mt-4">
+        <div v-if="permanentMenus.length === 0" class="rounded-xl bg-black/10 p-4 text-sm text-bordeaux/70">
+          Aucune carte permanente pour le moment.
+        </div>
+        <div v-else class="grid grid-cols-1 gap-3">
+          <div v-for="m in permanentMenus" :key="m.id" class="overflow-hidden rounded-2xl bg-black/10">
+            <div class="aspect-[4/5] overflow-hidden">
+              <button class="block h-full w-full" type="button" @click="openViewer(m.id, m.createdAt)">
+                <img class="h-full w-full object-cover" :src="permanentMenuItemUrl(m.id, m.createdAt)" :alt="m.id" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <div class="mt-4 grid gap-3">
-      <div v-if="permanentStatus" class="text-sm text-bordeaux/70">{{ permanentStatus }}</div>
-    </div>
+      <div class="mt-4 grid gap-3">
+        <div v-if="permanentStatus" class="text-sm text-bordeaux/70">{{ permanentStatus }}</div>
+      </div>
+    </section>
 
-    <label class="fixed bottom-24 left-1/2 z-50 -translate-x-1/2">
-      <input
-        ref="permanentCameraInputEl"
-        class="hidden"
-        type="file"
-        accept="image/*"
-        capture="environment"
-        :disabled="!auth.isMaster"
-        @change="onPermanentPick"
-      />
-      <button
+    <label class="fixed bottom-24 left-1/2 z-[80] -translate-x-1/2">
+      <input class="hidden" type="file" accept="image/*" @change="onPermanentPick" />
+      <span
         class="flex h-16 w-16 items-center justify-center rounded-full bg-bordeaux text-beige shadow-lg shadow-black/30 ring-1 ring-black/10 hover:bg-bordeaux/90"
         :class="!auth.isMaster ? 'pointer-events-none opacity-60' : ''"
-        type="button"
-        aria-label="Ajouter une carte"
-        title="Ajouter une carte"
-        @click="triggerPermanentCamera"
+        title="Ajouter une carte permanente"
+        aria-label="Ajouter une carte permanente"
       >
-        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="h-7 w-7">
-          <path
-            d="M9 7l1.2-2.1c.2-.5.7-.9 1.3-.9h1c.6 0 1.1.4 1.3.9L15 7"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-          <path
-            d="M6 7h12a2 2 0 012 2v9a2 2 0 01-2 2H6a2 2 0 01-2-2V9a2 2 0 012-2z"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-          <path
-            d="M12 17a3.5 3.5 0 100-7 3.5 3.5 0 000 7z"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-7 w-7">
+          <path d="M12 5v14" />
+          <path d="M5 12h14" />
         </svg>
-      </button>
+      </span>
     </label>
 
     <div v-if="viewerOpen" class="fixed inset-0 z-[90] bg-black">
@@ -200,11 +176,12 @@ onMounted(async () => {
           <button
             class="rounded-xl bg-black/10 px-4 py-3 text-sm text-bordeaux hover:bg-black/15"
             :disabled="!auth.isMaster"
+            type="button"
             @click="deleteFromViewer"
           >
             Supprimer
           </button>
-          <button class="rounded-xl bg-bordeaux px-4 py-3 text-sm font-medium text-beige hover:bg-bordeaux/90" @click="closeViewer">
+          <button class="rounded-xl bg-black/10 px-4 py-3 text-sm text-bordeaux hover:bg-black/15" type="button" @click="closeViewer">
             Fermer
           </button>
         </div>

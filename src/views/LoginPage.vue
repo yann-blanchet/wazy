@@ -75,7 +75,7 @@ async function login() {
         <span class="text-sm text-bordeaux/70">Choisissez votre identifiant public</span>
         <input
           v-model="desiredId"
-          class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 font-mono text-sm text-bordeaux outline-none focus:border-bordeaux/60"
+          class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 font-mono text-base text-bordeaux outline-none focus:border-bordeaux/60"
           placeholder="e.g. le-bistrot"
           autocomplete="off"
           autocapitalize="off"
@@ -111,7 +111,7 @@ async function login() {
         <span class="text-sm text-bordeaux/70">Clé</span>
         <input
           v-model="key"
-          class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 font-mono text-sm text-bordeaux outline-none focus:border-bordeaux/60"
+          class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 font-mono text-base text-bordeaux outline-none focus:border-bordeaux/60"
           placeholder="{id} or {id}-master"
           autocomplete="off"
           autocapitalize="off"

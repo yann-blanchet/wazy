@@ -9,6 +9,8 @@ const router = useRouter()
 const auth = useAuthStore()
 const enhanceSession = useEnhanceSessionStore()
 
+const permanentFileInputEl = ref<HTMLInputElement | null>(null)
+
 const permanentStatus = ref<string>('')
 const permanentMenus = ref<{ id: string; createdAt: number }[]>([])
 
@@ -83,6 +85,41 @@ async function onPermanentPick(e: Event) {
   }
 }
 
+function triggerPermanentPick() {
+  if (!auth.isMaster) return
+  permanentFileInputEl.value?.click()
+}
+
+async function persistOrder() {
+  if (!auth.isMaster) return
+  if (!auth.key) return
+  await apiFetch<{ ok: boolean }>('/api/permanent-menus/reorder', {
+    method: 'POST',
+    key: auth.key,
+    body: { ids: permanentMenus.value.map((p) => p.id) }
+  })
+}
+
+async function movePermanentMenu(from: number, to: number) {
+  if (!auth.isMaster) return
+  if (from < 0 || from >= permanentMenus.value.length) return
+  if (to < 0 || to >= permanentMenus.value.length) return
+  if (from === to) return
+
+  const next = [...permanentMenus.value]
+  const [item] = next.splice(from, 1)
+  next.splice(to, 0, item)
+  permanentMenus.value = next
+
+  try {
+    permanentStatus.value = 'Enregistrement…'
+    await persistOrder()
+    permanentStatus.value = 'Ordre mis à jour.'
+  } catch (err) {
+    permanentStatus.value = err instanceof Error ? err.message : 'reorder_error'
+  }
+}
+
 async function deletePermanentMenu(pid: string) {
   try {
     if (!auth.isMaster) throw new Error('forbidden')
@@ -113,32 +150,81 @@ onMounted(async () => {
 </script>
 
 <template>
-  <main class="mx-auto max-w-lg p-6 pb-28">
-    <div class="flex items-center justify-between">
-      <button class="text-sm text-bordeaux/70 underline" type="button" @click="goBack">Retour</button>
-      <div class="text-2xl font-semibold">Carte</div>
-      <div class="w-12" />
+  <main class="mx-auto flex h-dvh max-w-lg flex-col overflow-hidden">
+    <div class="sticky top-0 z-[60] bg-beige/95 px-6 pt-4 backdrop-blur">
+      <div class="flex items-center justify-between">
+        <button class="text-sm text-bordeaux/70 underline" type="button" @click="goBack">Retour</button>
+        <div class="text-2xl font-semibold">Carte</div>
+        <div class="w-12" />
+      </div>
     </div>
 
-    <section class="mt-6 rounded-2xl bg-black/5 p-5">
-      <div class="flex items-center justify-between gap-3">
-        <h2 class="text-lg font-semibold">Carte</h2>
-        <div class="text-xs text-bordeaux/70">{{ permanentCount }} • MAJ: {{ permanentLastUpdatedText }}</div>
+    <section class="px-6">
+      <div class=" p-5">
+        <p class="mt-1 text-sm text-bordeaux/70">Carte permanente du restaurant (entrées, plats, desserts).</p>
       </div>
-      <p class="mt-1 text-sm text-bordeaux/70">Toutes les cartes permanentes seront affichées ici.</p>
+    </section>
 
-      <div class="mt-4">
-        <div v-if="permanentMenus.length === 0" class="rounded-xl bg-black/10 p-4 text-sm text-bordeaux/70">
-          Aucune carte permanente pour le moment.
-        </div>
-        <div v-else class="grid grid-cols-1 gap-3">
-          <div v-for="m in permanentMenus" :key="m.id" class="overflow-hidden rounded-2xl bg-black/10">
-            <div class="aspect-[4/5] overflow-hidden">
-              <button class="block h-full w-full" type="button" @click="openViewer(m.id, m.createdAt)">
-                <img class="h-full w-full object-cover" :src="permanentMenuItemUrl(m.id, m.createdAt)" :alt="m.id" />
+    <section class="flex-1 overflow-y-auto px-6 pb-32 pt-4">
+      <div v-if="permanentMenus.length === 0" class="rounded-xl bg-black/10 p-4 text-sm text-bordeaux/70">
+        Aucune carte permanente pour le moment.
+      </div>
+      <div v-else class="grid grid-cols-1 gap-3">
+        <div v-for="(m, idx) in permanentMenus" :key="m.id" class="relative overflow-hidden rounded-2xl bg-black/10">
+          <div class="aspect-[4/5] overflow-hidden">
+            <button class="block h-full w-full" type="button" @click="openViewer(m.id, m.createdAt)">
+              <img class="h-full w-full object-cover" :src="permanentMenuItemUrl(m.id, m.createdAt)" :alt="m.id" />
+            </button>
+          </div>
+
+            <div v-if="auth.isMaster" class="absolute bottom-2 left-2 flex flex-col gap-2">
+              <button
+                class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white shadow-lg shadow-black/30 ring-1 ring-black/10 hover:bg-black/70"
+                type="button"
+                aria-label="Monter"
+                title="Monter"
+                :disabled="idx === 0"
+                :class="idx === 0 ? 'opacity-40' : ''"
+                @click.stop="movePermanentMenu(idx, idx - 1)"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5">
+                  <path d="M12 19V5" />
+                  <path d="M5 12l7-7 7 7" />
+                </svg>
+              </button>
+
+              <button
+                class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white shadow-lg shadow-black/30 ring-1 ring-black/10 hover:bg-black/70"
+                type="button"
+                aria-label="Descendre"
+                title="Descendre"
+                :disabled="idx === permanentMenus.length - 1"
+                :class="idx === permanentMenus.length - 1 ? 'opacity-40' : ''"
+                @click.stop="movePermanentMenu(idx, idx + 1)"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5">
+                  <path d="M12 5v14" />
+                  <path d="M5 12l7 7 7-7" />
+                </svg>
               </button>
             </div>
-          </div>
+
+            <button
+              v-if="auth.isMaster"
+              class="absolute bottom-2 right-2 inline-flex h-9 w-9 items-center justify-center rounded-full bg-red-600/90 text-white shadow-lg shadow-black/30 ring-1 ring-black/10 hover:bg-red-600"
+              type="button"
+              aria-label="Supprimer"
+              title="Supprimer"
+              @click.stop="deletePermanentMenu(m.id)"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5">
+                <path d="M3 6h18" />
+                <path d="M8 6V4h8v2" />
+                <path d="M19 6l-1 14H6L5 6" />
+                <path d="M10 11v6" />
+                <path d="M14 11v6" />
+              </svg>
+            </button>
         </div>
       </div>
 
@@ -147,20 +233,24 @@ onMounted(async () => {
       </div>
     </section>
 
-    <label class="fixed bottom-24 left-1/2 z-[80] -translate-x-1/2">
-      <input class="hidden" type="file" accept="image/*" @change="onPermanentPick" />
-      <span
-        class="flex h-16 w-16 items-center justify-center rounded-full bg-bordeaux text-beige shadow-lg shadow-black/30 ring-1 ring-black/10 hover:bg-bordeaux/90"
-        :class="!auth.isMaster ? 'pointer-events-none opacity-60' : ''"
-        title="Ajouter une carte permanente"
-        aria-label="Ajouter une carte permanente"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-7 w-7">
-          <path d="M12 5v14" />
-          <path d="M5 12h14" />
-        </svg>
-      </span>
-    </label>
+    <input ref="permanentFileInputEl" class="hidden" type="file" accept="image/*" @change="onPermanentPick" />
+
+    <div
+      class="fixed inset-x-0 bottom-0 z-[80] border-t border-black/10 bg-beige/95 px-4 py-3 backdrop-blur"
+      style="padding-bottom: max(env(safe-area-inset-bottom), 12px)"
+    >
+      <div class="mx-auto max-w-lg">
+        <button
+          class="w-full rounded-xl bg-bordeaux px-4 py-3 text-sm font-semibold text-beige shadow-lg shadow-black/20 hover:bg-bordeaux/90"
+          type="button"
+          :disabled="!auth.isMaster"
+          :class="!auth.isMaster ? 'opacity-60' : ''"
+          @click="triggerPermanentPick"
+        >
+          Ajouter une carte
+        </button>
+      </div>
+    </div>
 
     <div v-if="viewerOpen" class="fixed inset-0 z-[90] bg-black">
       <button class="absolute inset-0" type="button" @click="closeViewer" aria-label="Fermer" />

@@ -439,6 +439,66 @@ async function handle(req: Request, env: Env): Promise<Response> {
     return json({ id: pid, objectKey, uploadUrl })
   }
 
+  if (url.pathname === '/api/permanent-menus/reorder' && req.method === 'POST') {
+    const key = parseAuthKeyFromHeader(req)
+    if (!key) return json({ error: 'missing_auth' }, { status: 401 })
+
+    const auth = await authRestaurant(env, key)
+    if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
+    if (auth.role !== 'master') return json({ error: 'forbidden' }, { status: 403 })
+
+    const body = await readJsonOptional<{ ids?: string[] }>(req)
+    const ids = Array.isArray(body?.ids) ? body?.ids : null
+    if (!ids) return json({ error: 'invalid_body' }, { status: 400 })
+
+    const items = normalizePermanentMenus(auth.rec)
+    const byId = new Map(items.map((x) => [x.id, x] as const))
+
+    const next: PermanentMenuItem[] = []
+    for (const id of ids) {
+      if (typeof id !== 'string' || id.length === 0) continue
+      const item = byId.get(id)
+      if (item) next.push(item)
+    }
+
+    if (next.length !== items.length) return json({ error: 'invalid_ids' }, { status: 400 })
+
+    ;(auth.rec as unknown as { permanentMenus?: PermanentMenuItem[] }).permanentMenus = next
+    await putRestaurant(env, auth.rec)
+
+    return json({ ok: true })
+  }
+
+  if (url.pathname === '/api/restaurant-photos/reorder' && req.method === 'POST') {
+    const key = parseAuthKeyFromHeader(req)
+    if (!key) return json({ error: 'missing_auth' }, { status: 401 })
+
+    const auth = await authRestaurant(env, key)
+    if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
+    if (auth.role !== 'master') return json({ error: 'forbidden' }, { status: 403 })
+
+    const body = await readJsonOptional<{ ids?: string[] }>(req)
+    const ids = Array.isArray(body?.ids) ? body?.ids : null
+    if (!ids) return json({ error: 'invalid_body' }, { status: 400 })
+
+    const items = normalizeRestaurantPhotos(auth.rec)
+    const byId = new Map(items.map((x) => [x.id, x] as const))
+
+    const next: RestaurantPhotoItem[] = []
+    for (const id of ids) {
+      if (typeof id !== 'string' || id.length === 0) continue
+      const item = byId.get(id)
+      if (item) next.push(item)
+    }
+
+    if (next.length !== items.length) return json({ error: 'invalid_ids' }, { status: 400 })
+
+    ;(auth.rec as unknown as { photos?: RestaurantPhotoItem[] }).photos = next
+    await putRestaurant(env, auth.rec)
+
+    return json({ ok: true })
+  }
+
   if (url.pathname === '/api/restaurant-photos/presign-upload' && req.method === 'POST') {
     const key = parseAuthKeyFromHeader(req)
     if (!key) return json({ error: 'missing_auth' }, { status: 401 })

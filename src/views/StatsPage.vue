@@ -61,18 +61,15 @@ onMounted(async () => {
 <template>
   <main class="mx-auto max-w-lg p-6 pb-28">
     <div class="flex items-center justify-between">
-      <button class="text-sm text-bordeaux/70 underline" type="button" @click="goBack">Retour</button>
-      <div class="text-2xl font-semibold">Stats</div>
       <div class="w-12" />
+      <div class="text-2xl font-semibold">Statistiques</div>
+      
+            <button class="text-sm text-bordeaux/70 underline" type="button" @click="goBack">Retour</button>
+
     </div>
 
     <section class="mt-6 rounded-2xl bg-black/5 p-5">
-      <div class="flex items-center justify-between gap-3">
-        <h2 class="text-lg font-semibold">Stats</h2>
-        <button class="rounded-xl bg-black/10 px-4 py-2 text-sm hover:bg-black/15" type="button" @click="refreshStats">
-          Rafraîchir
-        </button>
-      </div>
+      
       <p class="mt-1 text-sm text-bordeaux/70">Résumé de votre compte sur cet appareil.</p>
 
       <div class="mt-4 grid grid-cols-2 gap-3">

@@ -206,18 +206,18 @@ async function onTakePhotoChange(e: Event) {
 </script>
 
 <template>
-  <main class="mx-auto flex min-h-dvh max-w-lg flex-col p-6 pb-28">
+  <main class="mx-auto flex h-dvh max-w-lg flex-col overflow-hidden p-6">
     <div class="flex items-center justify-between">
       <h1 class="text-2xl font-bold">WAZY</h1>
 
       <button
-        class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-black/10 text-bordeaux hover:bg-black/15"
+        class="inline-flex h-10 w-10 items-center justify-center rounded-xl  text-bordeaux "
         type="button"
         aria-label="Menu"
         title="Menu"
         @click="drawerOpen = true"
       >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5">
           <path d="M12 12h.01" />
           <path d="M12 6h.01" />
           <path d="M12 18h.01" />
@@ -225,25 +225,22 @@ async function onTakePhotoChange(e: Event) {
       </button>
     </div>
 
-    <div class="mt-4 rounded-xl bg-black/5 px-4 py-3">
-      <div class="text-xs uppercase tracking-wide text-bordeaux/70">Restaurant</div>
+    <div class="mt-4  px-4 ">
       <div class="mt-1 text-base font-semibold text-bordeaux">{{ restaurantName || auth.id || '—' }}</div>
     </div>
 
-    <div class="mt-6 grid flex-1 gap-4">
-
-
-      <div class="flex flex-1 flex-col gap-2 rounded-xl bg-black/5 p-4">
+    <div class="mt-6 flex flex-1 flex-col gap-4 overflow-hidden pb-24">
+      <div class="flex flex-1 min-h-0 flex-col gap-2 rounded-xl bg-black/5 p-4">
         <div class="flex items-center justify-between gap-3">
           <div class="text-xs uppercase tracking-wide text-bordeaux/70">Menu du jour</div>
           <div class="text-xs text-bordeaux/70">Dernière mise à jour: {{ lastUpdatedText }}</div>
         </div>
 
-        <div class="flex flex-1 overflow-hidden rounded-2xl bg-black/10">
+        <div class="flex min-h-0 flex-1 overflow-hidden rounded-2xl bg-black/10">
           <img
             v-if="serverPreviewUrl"
             v-show="serverPreviewState === 'loaded'"
-            class="h-full w-full object-cover"
+            class="h-full w-full object-contain"
             :src="serverPreviewUrl"
             alt="Photo du menu existant"
             @load="serverPreviewState = 'loaded'"
@@ -260,13 +257,7 @@ async function onTakePhotoChange(e: Event) {
 
         <div class="mt-auto grid grid-cols-3 items-center pt-2">
           <div />
-          <button
-            class="justify-self-center rounded-full bg-bordeaux px-4 py-2 text-xs font-medium text-beige hover:bg-bordeaux/90"
-            type="button"
-            @click="triggerCamera"
-          >
-            Ajouter un menu du jour
-          </button>
+          <div />
           <button
             class="justify-self-end px-3 py-2 text-xs text-bordeaux/70"
             type="button"
@@ -277,11 +268,10 @@ async function onTakePhotoChange(e: Event) {
         </div>
       </div>
 
-      <div v-if="previewUrl" class="overflow-hidden rounded-2xl bg-black/10">
+      <div v-if="previewUrl" class="hidden overflow-hidden rounded-2xl bg-black/10">
         <img class="w-full object-cover" :src="previewUrl" alt="Selected menu photo" @click="openViewer(previewUrl)" />
       </div>
 
-      
     </div>
 
     <input
@@ -293,6 +283,23 @@ async function onTakePhotoChange(e: Event) {
       @change="onTakePhotoChange"
     />
 
+    <div
+      class="fixed inset-x-0 bottom-0 z-[80] border-t border-black/10 bg-beige/95 px-4 py-3 backdrop-blur"
+      style="padding-bottom: max(env(safe-area-inset-bottom), 12px)"
+    >
+      <div class="mx-auto max-w-lg">
+        <button
+          class="w-full rounded-xl bg-bordeaux px-4 py-3 text-sm font-semibold text-beige shadow-lg shadow-black/20 hover:bg-bordeaux/90"
+          type="button"
+          :disabled="!auth.isMaster"
+          :class="!auth.isMaster ? 'opacity-60' : ''"
+          @click="triggerCamera"
+        >
+          Ajouter un menu du jour
+        </button>
+      </div>
+    </div>
+
     <div v-if="drawerOpen" class="fixed inset-0 z-[90]">
       <div class="absolute inset-0 bg-black/50" @click="drawerOpen = false" />
       <aside
@@ -300,7 +307,7 @@ async function onTakePhotoChange(e: Event) {
         style="padding-top: max(env(safe-area-inset-top), 16px)"
       >
         <div class="flex items-center justify-between">
-          <div class="text-sm font-semibold text-bordeaux">Menu</div>
+          
           <button class="text-sm text-bordeaux/70 underline" type="button" @click="drawerOpen = false">Fermer</button>
         </div>
 

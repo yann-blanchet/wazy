@@ -84,15 +84,13 @@ onMounted(async () => {
 <template>
   <main class="mx-auto max-w-lg p-6 pb-28">
     <div class="flex items-center justify-between">
-      <button class="text-sm text-bordeaux/70 underline" type="button" @click="goBack">Retour</button>
-      <div class="text-2xl font-semibold">Infos</div>
       <div class="w-12" />
+      <div class="text-2xl font-semibold">Infos restaurant</div>
+      <button class="text-sm text-bordeaux/70 underline" type="button" @click="goBack">Retour</button>
     </div>
 
     <section class="mt-6 rounded-2xl bg-black/5 p-5">
-      <h2 class="text-lg font-semibold">Infos</h2>
-      <p class="mt-1 text-sm text-bordeaux/70">Affiché sur la page publique.</p>
-
+ 
       <div class="mt-4 grid gap-3">
         <label class="grid gap-2">
           <span class="text-sm text-bordeaux/70">Nom</span>

@@ -137,9 +137,9 @@ onMounted(async () => {
   <main class="mx-auto flex h-dvh max-w-lg flex-col overflow-hidden">
     <div class="sticky top-0 z-[60] bg-beige/95 px-6 pt-4 backdrop-blur">
       <div class="flex items-center justify-between">
-        <button class="text-sm text-bordeaux/70 underline" type="button" @click="goBack">Retour</button>
-        <div class="text-2xl font-semibold">Galerie</div>
         <div class="w-12" />
+        <div class="text-2xl font-semibold">Galerie</div>
+        <button class="text-sm text-bordeaux/70 underline" type="button" @click="goBack">Retour</button>
       </div>
     </div>
 

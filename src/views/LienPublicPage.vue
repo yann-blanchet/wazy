@@ -54,14 +54,13 @@ onMounted(async () => {
 <template>
   <main class="mx-auto max-w-lg p-6 pb-28">
     <div class="flex items-center justify-between">
+       <div class="w-12" />
+     <div class="text-2xl font-semibold">Lien public</div>
       <button class="text-sm text-bordeaux/70 underline" type="button" @click="goBack">Retour</button>
-      <div class="text-2xl font-semibold">Lien public</div>
-      <div class="w-12" />
     </div>
 
     <section class="mt-6 rounded-2xl bg-black/5 p-5">
-      <h2 class="text-lg font-semibold">Lien public</h2>
-      <p class="mt-1 text-sm text-bordeaux/70">À partager avec vos clients.</p>
+      <p class="mt-1 text-sm text-bordeaux/70">Lien public à partager avec vos clients.</p>
 
       <div v-if="publicPageUrl" class="mt-4 break-all rounded-xl bg-black/10 p-3 font-mono text-xs text-bordeaux/70">
         {{ publicPageUrl }}

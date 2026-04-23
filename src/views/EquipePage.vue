@@ -60,9 +60,9 @@ onMounted(async () => {
 <template>
   <main class="mx-auto max-w-lg p-6 pb-28">
     <div class="flex items-center justify-between">
-      <button class="text-sm text-bordeaux/70 underline" type="button" @click="goBack">Retour</button>
-      <div class="text-2xl font-semibold">Équipe</div>
       <div class="w-12" />
+      <div class="text-2xl font-semibold">Équipe</div>
+      <button class="text-sm text-bordeaux/70 underline" type="button" @click="goBack">Retour</button>
     </div>
 
     <section class="mt-6 rounded-2xl bg-black/5 p-5">

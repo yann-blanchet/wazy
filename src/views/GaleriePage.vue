@@ -217,7 +217,7 @@ onMounted(async () => {
       </div>
     </section>
 
-    <input ref="photoFileInputEl" class="hidden" type="file" accept="image/*" @change="onPhotoPick" />
+    <input ref="photoFileInputEl" class="sr-only" type="file" accept="image/*" @change="onPhotoPick" />
 
     <div
       class="fixed inset-x-0 bottom-0 z-[80] border-t border-black/10 bg-beige/95 px-4 py-3 backdrop-blur"

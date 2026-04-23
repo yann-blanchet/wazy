@@ -276,7 +276,7 @@ async function onTakePhotoChange(e: Event) {
 
     <input
       ref="cameraInputEl"
-      class="hidden"
+      class="sr-only"
       type="file"
       accept="image/*"
       capture="environment"

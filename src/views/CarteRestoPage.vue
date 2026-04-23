@@ -233,7 +233,7 @@ onMounted(async () => {
       </div>
     </section>
 
-    <input ref="permanentFileInputEl" class="hidden" type="file" accept="image/*" @change="onPermanentPick" />
+    <input ref="permanentFileInputEl" class="sr-only" type="file" accept="image/*" @change="onPermanentPick" />
 
     <div
       class="fixed inset-x-0 bottom-0 z-[80] border-t border-black/10 bg-beige/95 px-4 py-3 backdrop-blur"

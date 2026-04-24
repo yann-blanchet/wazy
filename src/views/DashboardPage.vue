@@ -19,15 +19,11 @@ const status = ref<string>('')
 const queued = ref<number>(0)
 const previewUrl = ref<string>('')
 
-const drawerOpen = ref(false)
-
 async function go(path: string) {
-  drawerOpen.value = false
   await router.push(path)
 }
 
 async function logout() {
-  drawerOpen.value = false
   auth.logout()
   await router.push('/login')
 }
@@ -210,23 +206,7 @@ async function onTakePhotoChange(e: Event) {
     <div class="flex items-center justify-between">
       <h1 class="text-2xl font-bold">WAZY</h1>
 
-      <button
-        class="inline-flex h-10 w-10 items-center justify-center rounded-xl  text-bordeaux "
-        type="button"
-        aria-label="Menu"
-        title="Menu"
-        @click="drawerOpen = true"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5">
-          <path d="M12 12h.01" />
-          <path d="M12 6h.01" />
-          <path d="M12 18h.01" />
-        </svg>
-      </button>
-    </div>
-
-    <div class="mt-4  px-4 ">
-      <div class="mt-1 text-base font-semibold text-bordeaux">{{ restaurantName || auth.id || '—' }}</div>
+      <div class="ml-4 truncate text-sm font-semibold text-bordeaux">{{ restaurantName || auth.id || '—' }}</div>
     </div>
 
     <div class="mt-6 grid gap-4">
@@ -255,26 +235,27 @@ async function onTakePhotoChange(e: Event) {
           </div>
         </div>
 
-        <div class="mt-auto grid grid-cols-3 items-center pt-2">
-          <div />
+        <div class="mt-auto grid grid-cols-1 items-center pt-2">
+          
           <button
-            class="justify-self-center rounded-full bg-bordeaux px-4 py-2 text-xs font-medium text-beige hover:bg-bordeaux/90"
+            class="justify-self-center rounded-lg bg-bordeaux px-4 py-2 text-xs font-medium text-beige hover:bg-bordeaux/90"
             type="button"
             @click="triggerCamera"
           >
             Ajouter un menu du jour
           </button>
-          <button
-            class="justify-self-end px-3 py-2 text-xs text-bordeaux/70"
-            type="button"
-            @click="router.push('/history')"
-          >
-            Voir tous les menus
-          </button>
+          
         </div>
       </div>
 
       <div class="grid gap-2">
+        <button class="flex w-full items-center justify-between rounded-xl bg-black/5 px-4 py-3 text-left text-sm text-bordeaux hover:bg-black/10" type="button" @click="go('/history')">
+          <span>Voir tous les menus du jour</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-bordeaux/60">
+            <path d="M9 18l6-6-6-6" />
+          </svg>
+        </button>
+
         <button class="flex w-full items-center justify-between rounded-xl bg-black/5 px-4 py-3 text-left text-sm text-bordeaux hover:bg-black/10" type="button" @click="go('/infos')">
           <span>Infos</span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-bordeaux/60">
@@ -339,46 +320,6 @@ async function onTakePhotoChange(e: Event) {
       capture="environment"
       @change="onTakePhotoChange"
     />
-
-    <div v-if="drawerOpen" class="fixed inset-0 z-[90]">
-      <div class="absolute inset-0 bg-black/50" @click="drawerOpen = false" />
-      <aside
-        class="absolute right-0 top-0 h-full w-72 border-l border-black/10 bg-beige p-4"
-        style="padding-top: max(env(safe-area-inset-top), 16px)"
-      >
-        <div class="flex items-center justify-between">
-          
-          <button class="text-sm text-bordeaux/70 underline" type="button" @click="drawerOpen = false">Fermer</button>
-        </div>
-
-        <div class="mt-4 grid gap-2">
-          <button class="w-full rounded-xl bg-black/5 px-4 py-3 text-left text-sm text-bordeaux hover:bg-black/10" type="button" @click="go('/infos')">
-            Infos
-          </button>
-          <button class="w-full rounded-xl bg-black/5 px-4 py-3 text-left text-sm text-bordeaux hover:bg-black/10" type="button" @click="go('/carte')">
-            Carte
-          </button>
-          <button class="w-full rounded-xl bg-black/5 px-4 py-3 text-left text-sm text-bordeaux hover:bg-black/10" type="button" @click="go('/galerie')">
-            Galerie
-          </button>
-          <button class="w-full rounded-xl bg-black/5 px-4 py-3 text-left text-sm text-bordeaux hover:bg-black/10" type="button" @click="go('/lien-public')">
-            Lien public
-          </button>
-          <button class="w-full rounded-xl bg-black/5 px-4 py-3 text-left text-sm text-bordeaux hover:bg-black/10" type="button" @click="go('/equipe')">
-            Équipe
-          </button>
-          <button class="w-full rounded-xl bg-black/5 px-4 py-3 text-left text-sm text-bordeaux hover:bg-black/10" type="button" @click="go('/stats')">
-            Stats
-          </button>
-        </div>
-
-        <div class="mt-6 border-t border-black/10 pt-4">
-          <button class="w-full rounded-xl bg-black/10 px-4 py-3 text-left text-sm text-bordeaux hover:bg-black/15" type="button" @click="logout">
-            Déconnexion
-          </button>
-        </div>
-      </aside>
-    </div>
 
     <div v-if="viewerOpen" class="fixed inset-0 z-[70] bg-black">
       <img class="absolute inset-0 h-full w-full object-contain" :src="viewerUrl" alt="Full screen menu" />

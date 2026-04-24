@@ -206,7 +206,7 @@ async function onTakePhotoChange(e: Event) {
 </script>
 
 <template>
-  <main class="mx-auto flex h-dvh max-w-lg flex-col overflow-hidden p-6">
+  <main class="mx-auto flex min-h-dvh max-w-lg flex-col p-6 pb-28">
     <div class="flex items-center justify-between">
       <h1 class="text-2xl font-bold">WAZY</h1>
 
@@ -229,14 +229,14 @@ async function onTakePhotoChange(e: Event) {
       <div class="mt-1 text-base font-semibold text-bordeaux">{{ restaurantName || auth.id || '—' }}</div>
     </div>
 
-    <div class="mt-6 flex flex-1 flex-col gap-4 overflow-hidden pb-24">
-      <div class="flex flex-1 min-h-0 flex-col gap-2 rounded-xl bg-black/5 p-4">
+    <div class="mt-6 grid gap-4">
+      <div class="flex flex-col gap-2 rounded-xl bg-black/5 p-4">
         <div class="flex items-center justify-between gap-3">
           <div class="text-xs uppercase tracking-wide text-bordeaux/70">Menu du jour</div>
           <div class="text-xs text-bordeaux/70">Dernière mise à jour: {{ lastUpdatedText }}</div>
         </div>
 
-        <div class="flex min-h-0 flex-1 overflow-hidden rounded-2xl bg-black/10">
+        <div class="flex overflow-hidden rounded-2xl bg-black/10">
           <img
             v-if="serverPreviewUrl"
             v-show="serverPreviewState === 'loaded'"
@@ -257,7 +257,13 @@ async function onTakePhotoChange(e: Event) {
 
         <div class="mt-auto grid grid-cols-3 items-center pt-2">
           <div />
-          <div />
+          <button
+            class="justify-self-center rounded-full bg-bordeaux px-4 py-2 text-xs font-medium text-beige hover:bg-bordeaux/90"
+            type="button"
+            @click="triggerCamera"
+          >
+            Ajouter un menu du jour
+          </button>
           <button
             class="justify-self-end px-3 py-2 text-xs text-bordeaux/70"
             type="button"
@@ -266,6 +272,57 @@ async function onTakePhotoChange(e: Event) {
             Voir tous les menus
           </button>
         </div>
+      </div>
+
+      <div class="grid gap-2">
+        <button class="flex w-full items-center justify-between rounded-xl bg-black/5 px-4 py-3 text-left text-sm text-bordeaux hover:bg-black/10" type="button" @click="go('/infos')">
+          <span>Infos</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-bordeaux/60">
+            <path d="M9 18l6-6-6-6" />
+          </svg>
+        </button>
+
+        <button class="flex w-full items-center justify-between rounded-xl bg-black/5 px-4 py-3 text-left text-sm text-bordeaux hover:bg-black/10" type="button" @click="go('/carte')">
+          <span>Carte</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-bordeaux/60">
+            <path d="M9 18l6-6-6-6" />
+          </svg>
+        </button>
+
+        <button class="flex w-full items-center justify-between rounded-xl bg-black/5 px-4 py-3 text-left text-sm text-bordeaux hover:bg-black/10" type="button" @click="go('/galerie')">
+          <span>Galerie</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-bordeaux/60">
+            <path d="M9 18l6-6-6-6" />
+          </svg>
+        </button>
+
+        <button class="flex w-full items-center justify-between rounded-xl bg-black/5 px-4 py-3 text-left text-sm text-bordeaux hover:bg-black/10" type="button" @click="go('/lien-public')">
+          <span>Lien public</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-bordeaux/60">
+            <path d="M9 18l6-6-6-6" />
+          </svg>
+        </button>
+
+        <button class="flex w-full items-center justify-between rounded-xl bg-black/5 px-4 py-3 text-left text-sm text-bordeaux hover:bg-black/10" type="button" @click="go('/equipe')">
+          <span>Équipe</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-bordeaux/60">
+            <path d="M9 18l6-6-6-6" />
+          </svg>
+        </button>
+
+        <button class="flex w-full items-center justify-between rounded-xl bg-black/5 px-4 py-3 text-left text-sm text-bordeaux hover:bg-black/10" type="button" @click="go('/stats')">
+          <span>Stats</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-bordeaux/60">
+            <path d="M9 18l6-6-6-6" />
+          </svg>
+        </button>
+
+        <button class="flex w-full items-center justify-between rounded-xl bg-black/10 px-4 py-3 text-left text-sm text-bordeaux hover:bg-black/15" type="button" @click="logout">
+          <span>Déconnexion</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-bordeaux/60">
+            <path d="M9 18l6-6-6-6" />
+          </svg>
+        </button>
       </div>
 
       <div v-if="previewUrl" class="hidden overflow-hidden rounded-2xl bg-black/10">
@@ -282,21 +339,6 @@ async function onTakePhotoChange(e: Event) {
       capture="environment"
       @change="onTakePhotoChange"
     />
-
-    <div
-      class="fixed inset-x-0 bottom-0 z-[80] border-t border-black/10 bg-beige/95 px-4 py-3 backdrop-blur"
-      style="padding-bottom: max(env(safe-area-inset-bottom), 12px)"
-    >
-      <div class="mx-auto max-w-lg">
-        <button
-          class="w-full rounded-xl bg-bordeaux px-4 py-3 text-sm font-semibold text-beige shadow-lg shadow-black/20 hover:bg-bordeaux/90"
-          type="button"
-          @click="triggerCamera"
-        >
-          Ajouter un menu du jour
-        </button>
-      </div>
-    </div>
 
     <div v-if="drawerOpen" class="fixed inset-0 z-[90]">
       <div class="absolute inset-0 bg-black/50" @click="drawerOpen = false" />

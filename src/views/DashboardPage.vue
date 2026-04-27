@@ -239,14 +239,14 @@ async function onTakePhotoChange(e: Event) {
     <div class="flex items-center justify-between">
       <h1 class="text-2xl font-bold">{{ activeTabTitle }}</h1>
 
-      <div class="ml-4 truncate text-sm font-semibold text-primary">{{ restaurantName || auth.id || '—' }}</div>
+      <div class="ml-4 truncate text-sm font-semibold text-secondary">{{ restaurantName || auth.id || '—' }}</div>
     </div>
 
     <div class="mt-6 flex flex-1 flex-col overflow-hidden">
       <div v-if="activeTab === 'menu'" class="flex flex-1 flex-col overflow-hidden pb-24">
         <div class="flex flex-1 min-h-0 flex-col gap-2 ">
           <div class="flex items-center justify-end gap-3">
-            <div class="text-xs text-primary/70">{{ lastUpdatedText }}</div>
+            <div class="text-xs text-secondary/80">{{ lastUpdatedText }}</div>
           </div>
 
           <div class="flex min-h-0 flex-1 overflow-hidden rounded-2xl bg-black/10">

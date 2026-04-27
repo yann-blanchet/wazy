@@ -90,7 +90,7 @@ async function back() {
   <main class="mx-auto max-w-lg p-6">
     <div class="flex items-center justify-between">
       <h1 class="text-2xl font-semibold">Admin</h1>
-      <button class="text-sm text-primary/70 underline" type="button" @click="back">Retour</button>
+      <button class="text-sm text-secondary underline hover:text-secondary/80" type="button" @click="back">Retour</button>
     </div>
 
     <section class="mt-6 rounded-2xl bg-black/5 p-5">

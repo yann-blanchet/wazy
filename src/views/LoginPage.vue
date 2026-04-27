@@ -184,7 +184,7 @@ function setMode(m: 'login' | 'create' | 'recover') {
           />
         </label>
 
-        <button class="rounded-xl bg-black/10 px-4 py-3 hover:bg-black/15" type="button" @click="requestRecoveryToken">
+        <button class="rounded-xl bg-primary px-4 py-3 font-medium text-background hover:bg-primary/90" type="button" @click="requestRecoveryToken">
           Envoyer le code
         </button>
 
@@ -219,7 +219,7 @@ function setMode(m: 'login' | 'create' | 'recover') {
           {{ recoveryStatus }}
         </div>
 
-        <button class="text-left text-sm text-primary/70 underline" type="button" @click="setMode('login')">Retour à la connexion</button>
+        <button class="text-left text-sm text-secondary underline hover:text-secondary/80" type="button" @click="setMode('login')">Retour à la connexion</button>
       </div>
 
       <div v-else class="mt-6 grid gap-3">
@@ -243,7 +243,7 @@ function setMode(m: 'login' | 'create' | 'recover') {
           Connexion
         </button>
 
-        <button class="text-left text-sm text-primary/70 underline" type="button" @click="setMode('recover')">Clé oubliée ?</button>
+        <button class="text-left text-sm text-secondary underline hover:text-secondary/80" type="button" @click="setMode('recover')">Clé oubliée ?</button>
 
         <div class="mt-3 rounded-xl bg-black/5 p-4">
           <div class="text-sm text-primary/70">Pas encore de compte ?</div>

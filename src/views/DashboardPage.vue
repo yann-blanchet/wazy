@@ -229,22 +229,22 @@ async function onTakePhotoChange(e: Event) {
 </script>
 
 <template>
-  <main class="mx-auto flex min-h-dvh max-w-lg flex-col p-6 pb-28">
+  <main class="mx-auto flex h-dvh max-w-lg flex-col overflow-hidden p-6">
     <div class="flex items-center justify-between">
       <h1 class="text-2xl font-bold">WAZY</h1>
 
       <div class="ml-4 truncate text-sm font-semibold text-bordeaux">{{ restaurantName || auth.id || '—' }}</div>
     </div>
 
-    <div class="mt-6 grid gap-4 pb-24">
-      <div v-if="activeTab === 'menu'" class="grid gap-4">
-        <div class="flex flex-col gap-2 rounded-xl bg-black/5 p-4">
+    <div class="mt-6 flex flex-1 flex-col overflow-hidden">
+      <div v-if="activeTab === 'menu'" class="flex flex-1 flex-col overflow-hidden pb-24">
+        <div class="flex flex-1 min-h-0 flex-col gap-2 ">
           <div class="flex items-center justify-between gap-3">
-            <div class="text-xs uppercase tracking-wide text-bordeaux/70">Menu du jour</div>
+            <div class="text-base font-semibold tracking-wide text-bordeaux/70">Menu du jour</div>
             <div class="text-xs text-bordeaux/70">{{ lastUpdatedText }}</div>
           </div>
 
-          <div class="flex overflow-hidden rounded-2xl bg-black/10">
+          <div class="flex min-h-0 flex-1 overflow-hidden rounded-2xl bg-black/10">
             <img
               v-if="serverPreviewUrl"
               v-show="serverPreviewState === 'loaded'"
@@ -275,7 +275,9 @@ async function onTakePhotoChange(e: Event) {
         </div>
       </div>
 
-      <div v-else-if="activeTab === 'resto'" class="grid gap-2">
+      <div v-else-if="activeTab === 'resto'" class="grid gap-2 overflow-y-auto pb-24">
+        <div class="px-1 text-base font-semibold tracking-wide text-bordeaux/70">Mon resto</div>
+
         <button class="flex w-full items-center justify-between rounded-xl bg-black/5 px-4 py-3 text-left text-sm text-bordeaux hover:bg-black/10" type="button" @click="go('/history')">
           <span>Voir tous les menus du jour</span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-bordeaux/60">
@@ -312,7 +314,9 @@ async function onTakePhotoChange(e: Event) {
         </button>
       </div>
 
-      <div v-else class="grid gap-2">
+      <div v-else class="grid gap-2 overflow-y-auto pb-24">
+        <div class="px-1 text-base font-semibold tracking-wide text-bordeaux/70">Compte</div>
+
         <button class="flex w-full items-center justify-between rounded-xl bg-black/5 px-4 py-3 text-left text-sm text-bordeaux hover:bg-black/10" type="button" @click="go('/equipe')">
           <span>Équipe</span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-bordeaux/60">
@@ -398,21 +402,21 @@ async function onTakePhotoChange(e: Event) {
       @change="onTakePhotoChange"
     />
 
-    <div v-if="viewerOpen" class="fixed inset-0 z-[70] bg-black">
+    <div v-if="viewerOpen" class="fixed inset-0 z-[90] bg-black">
       <img class="absolute inset-0 h-full w-full object-contain" :src="viewerUrl" alt="Full screen menu" />
 
-      <div
-        class="absolute bottom-0 left-0 right-0 flex items-center justify-between gap-3 border-t border-black/10 bg-beige/95 px-5 py-4 backdrop-blur"
-        style="padding-bottom: max(env(safe-area-inset-bottom), 16px)"
+      <button
+        class="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/40 text-white ring-1 ring-white/10 backdrop-blur hover:bg-black/50"
+        type="button"
+        aria-label="Fermer"
+        title="Fermer"
+        @click="closeViewer"
       >
-        <button class="rounded-full bg-black/10 px-4 py-2 text-sm text-bordeaux" @click="closeViewer">
-          Fermer
-        </button>
-
-        <button class="rounded-full bg-rose-500/20 px-4 py-2 text-sm text-rose-950" @click="deleteMenuForDate(); closeViewer()">
-          Supprimer
-        </button>
-      </div>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5">
+          <path d="M18 6L6 18" />
+          <path d="M6 6l12 12" />
+        </svg>
+      </button>
     </div>
 
   </main>

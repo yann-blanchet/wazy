@@ -150,15 +150,15 @@ onMounted(async () => {
 
 <template>
   <main class="mx-auto flex h-dvh max-w-lg flex-col overflow-hidden">
-    <div class="sticky top-0 z-[60] bg-background/95 px-6 pt-4 backdrop-blur">
+    <div class="sticky top-0 z-[60]  px-6 pt-4 backdrop-blur">
       <div class="flex items-center justify-between">
-          <div class="w-12" />
         <div class="text-2xl font-semibold">Carte</div>
-      <button class="text-sm text-primary/70 underline" type="button" @click="goBack">Retour</button>
+          <div class="w-12" />
+      <button class="text-sm text-secondary underline" type="button" @click="goBack">Retour</button>
       </div>
     </div>
 
-    <section class="px-6">
+    <section class="px-2">
       <div class=" p-5">
         <p class="mt-1 text-sm text-primary/70">Carte permanente du restaurant (entrées, plats, desserts).</p>
       </div>
@@ -235,7 +235,7 @@ onMounted(async () => {
     <input ref="permanentFileInputEl" class="sr-only" type="file" accept="image/*" @change="onPermanentPick" />
 
     <div
-      class="fixed inset-x-0 bottom-0 z-[80] border-t border-black/10 bg-background/95 px-4 py-3 backdrop-blur"
+      class="fixed inset-x-0 bottom-0 z-[80] border-t border-black/10 px-4 py-3 backdrop-blur"
       style="padding-bottom: max(env(safe-area-inset-bottom), 12px)"
     >
       <div class="mx-auto max-w-lg">

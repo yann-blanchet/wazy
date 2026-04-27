@@ -61,7 +61,7 @@ onMounted(async () => {
     <div class="flex items-center justify-between">
       <div class="w-12" />
       <div class="text-2xl font-semibold">Équipe</div>
-      <button class="text-sm text-primary/70 underline" type="button" @click="goBack">Retour</button>
+      <button class="text-sm text-secondary underline" type="button" @click="goBack">Retour</button>
     </div>
 
     <section class="mt-6 rounded-2xl bg-black/5 p-5">

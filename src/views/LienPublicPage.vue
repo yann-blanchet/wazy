@@ -53,9 +53,9 @@ onMounted(async () => {
 <template>
   <main class="mx-auto max-w-lg p-6 pb-28">
     <div class="flex items-center justify-between">
-       <div class="w-12" />
      <div class="text-2xl font-semibold">Lien public</div>
-      <button class="text-sm text-primary/70 underline" type="button" @click="goBack">Retour</button>
+     <div class="w-12" />
+        <button class="text-sm text-secondary underline" type="button" @click="goBack">Retour</button>
     </div>
 
     <section class="mt-6 rounded-2xl bg-black/5 p-5">

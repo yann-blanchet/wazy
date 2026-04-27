@@ -63,7 +63,7 @@ onMounted(async () => {
       <div class="w-12" />
       <div class="text-2xl font-semibold">Statistiques</div>
       
-            <button class="text-sm text-primary/70 underline" type="button" @click="goBack">Retour</button>
+            <button class="text-sm text-secondary underline" type="button" @click="goBack">Retour</button>
 
     </div>
 

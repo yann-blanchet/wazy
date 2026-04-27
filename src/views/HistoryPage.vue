@@ -42,6 +42,10 @@ async function load() {
   }
 }
 
+async function goBack() {
+  await router.push({ path: '/dashboard', query: { tab: 'resto' } })
+}
+
 onMounted(load)
 </script>
 
@@ -49,8 +53,8 @@ onMounted(load)
   <main class="mx-auto max-w-4xl p-6">
     <div class="flex items-center justify-between">
       <h1 class="text-2xl font-semibold">History</h1>
-      <button class="text-sm text-primary/70 underline" @click="router.push('/dashboard')">
-        Back
+      <button class="text-sm text-secondary underline" @click="goBack">
+        Retour
       </button>
     </div>
 

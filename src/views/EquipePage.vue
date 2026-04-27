@@ -20,8 +20,7 @@ const workerKeyValid = computed(() => {
 const workerKeyHasInput = computed(() => workerKeyTrimmed.value.length > 0)
 
 async function goBack() {
-  if (window.history.length > 1) router.back()
-  else await router.push('/dashboard')
+  await router.push({ path: '/dashboard', query: { tab: 'compte' } })
 }
 
 async function saveWorkerKey() {

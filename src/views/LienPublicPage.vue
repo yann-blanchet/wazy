@@ -42,8 +42,7 @@ function openLink(v: string) {
 }
 
 async function goBack() {
-  if (window.history.length > 1) router.back()
-  else await router.push('/dashboard')
+  await router.push({ path: '/dashboard', query: { tab: 'resto' } })
 }
 
 onMounted(async () => {

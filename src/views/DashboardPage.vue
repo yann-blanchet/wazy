@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useEnhanceSessionStore } from '../stores/enhanceSession'
 import {
@@ -11,6 +11,7 @@ import {
 } from '../lib/uploadQueue'
 import { apiFetch } from '../lib/api'
 
+const route = useRoute()
 const router = useRouter()
 
 const auth = useAuthStore()
@@ -44,6 +45,30 @@ const cameraInputEl = ref<HTMLInputElement | null>(null)
 function triggerCamera() {
   cameraInputEl.value?.click()
 }
+
+const activeTab = ref<'menu' | 'resto' | 'compte'>('menu')
+
+onMounted(() => {
+  const q = route.query.tab
+  if (q === 'menu' || q === 'resto' || q === 'compte') activeTab.value = q
+})
+
+watch(
+  () => route.query.tab,
+  (q) => {
+    if (q === 'menu' || q === 'resto' || q === 'compte') activeTab.value = q
+  }
+)
+
+watch(
+  activeTab,
+  async (tab) => {
+    if (route.path !== '/dashboard') return
+    if (route.query.tab === tab) return
+    await router.replace({ path: '/dashboard', query: { ...route.query, tab } })
+  },
+  { flush: 'post' }
+)
 
 const viewerOpen = ref<boolean>(false)
 const viewerUrl = ref<string>('')
@@ -183,6 +208,8 @@ async function deleteMenuForDate() {
 
     refreshServerPreview()
 
+    menus.value = menus.value.filter((m) => m.date !== selectedDate.value)
+
     status.value = 'Deleted.'
   } catch (err) {
     status.value = err instanceof Error ? err.message : 'delete_error'
@@ -209,46 +236,46 @@ async function onTakePhotoChange(e: Event) {
       <div class="ml-4 truncate text-sm font-semibold text-bordeaux">{{ restaurantName || auth.id || '—' }}</div>
     </div>
 
-    <div class="mt-6 grid gap-4">
-      <div class="flex flex-col gap-2 rounded-xl bg-black/5 p-4">
-        <div class="flex items-center justify-between gap-3">
-          <div class="text-xs uppercase tracking-wide text-bordeaux/70">Menu du jour</div>
-          <div class="text-xs text-bordeaux/70">Dernière mise à jour: {{ lastUpdatedText }}</div>
-        </div>
-
-        <div class="flex overflow-hidden rounded-2xl bg-black/10">
-          <img
-            v-if="serverPreviewUrl"
-            v-show="serverPreviewState === 'loaded'"
-            class="h-full w-full object-contain"
-            :src="serverPreviewUrl"
-            alt="Photo du menu existant"
-            @load="serverPreviewState = 'loaded'"
-            @error="serverPreviewState = 'missing'"
-            @click="openViewer(serverPreviewUrl)"
-          />
-          <div v-if="!serverPreviewUrl || serverPreviewState === 'loading'" class="flex flex-1 items-center justify-center p-4 text-sm text-bordeaux/70">
-            {{ serverPreviewUrl ? 'Chargement…' : "Pas de menu pour aujourd'hui." }}
+    <div class="mt-6 grid gap-4 pb-24">
+      <div v-if="activeTab === 'menu'" class="grid gap-4">
+        <div class="flex flex-col gap-2 rounded-xl bg-black/5 p-4">
+          <div class="flex items-center justify-between gap-3">
+            <div class="text-xs uppercase tracking-wide text-bordeaux/70">Menu du jour</div>
+            <div class="text-xs text-bordeaux/70">{{ lastUpdatedText }}</div>
           </div>
-          <div v-else-if="serverPreviewState === 'missing'" class="flex flex-1 items-center justify-center p-4 text-sm text-bordeaux/70">
-            Pas de menu pour aujourd'hui.
-          </div>
-        </div>
 
-        <div class="mt-auto grid grid-cols-1 items-center pt-2">
-          
-          <button
-            class="justify-self-center rounded-lg bg-bordeaux px-4 py-2 text-xs font-medium text-beige hover:bg-bordeaux/90"
-            type="button"
-            @click="triggerCamera"
-          >
-            Ajouter un menu du jour
-          </button>
-          
+          <div class="flex overflow-hidden rounded-2xl bg-black/10">
+            <img
+              v-if="serverPreviewUrl"
+              v-show="serverPreviewState === 'loaded'"
+              class="h-full w-full object-contain"
+              :src="serverPreviewUrl"
+              alt="Photo du menu existant"
+              @load="serverPreviewState = 'loaded'"
+              @error="serverPreviewState = 'missing'"
+              @click="openViewer(serverPreviewUrl)"
+            />
+            <div v-if="!serverPreviewUrl || serverPreviewState === 'loading'" class="flex flex-1 items-center justify-center p-4 text-sm text-bordeaux/70">
+              {{ serverPreviewUrl ? 'Chargement…' : "Pas de menu pour aujourd'hui." }}
+            </div>
+            <div v-else-if="serverPreviewState === 'missing'" class="flex flex-1 items-center justify-center p-4 text-sm text-bordeaux/70">
+              Pas de menu pour aujourd'hui.
+            </div>
+          </div>
+
+          <div class="mt-auto pt-2">
+            <button
+              class="w-full rounded-xl bg-bordeaux px-4 py-3 text-sm font-semibold text-beige shadow-lg shadow-black/20 hover:bg-bordeaux/90"
+              type="button"
+              @click="selectedMenu ? deleteMenuForDate() : triggerCamera()"
+            >
+              {{ selectedMenu ? 'Dépublier le menu du jour' : 'Publier le menu du jour' }}
+            </button>
+          </div>
         </div>
       </div>
 
-      <div class="grid gap-2">
+      <div v-else-if="activeTab === 'resto'" class="grid gap-2">
         <button class="flex w-full items-center justify-between rounded-xl bg-black/5 px-4 py-3 text-left text-sm text-bordeaux hover:bg-black/10" type="button" @click="go('/history')">
           <span>Voir tous les menus du jour</span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-bordeaux/60">
@@ -283,7 +310,9 @@ async function onTakePhotoChange(e: Event) {
             <path d="M9 18l6-6-6-6" />
           </svg>
         </button>
+      </div>
 
+      <div v-else class="grid gap-2">
         <button class="flex w-full items-center justify-between rounded-xl bg-black/5 px-4 py-3 text-left text-sm text-bordeaux hover:bg-black/10" type="button" @click="go('/equipe')">
           <span>Équipe</span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-bordeaux/60">
@@ -310,6 +339,54 @@ async function onTakePhotoChange(e: Event) {
         <img class="w-full object-cover" :src="previewUrl" alt="Selected menu photo" @click="openViewer(previewUrl)" />
       </div>
 
+    </div>
+
+    <div
+      class="fixed inset-x-0 bottom-0 z-[80] border-t border-black/10 bg-beige/95 px-4 py-3 backdrop-blur"
+      style="padding-bottom: max(env(safe-area-inset-bottom), 12px)"
+    >
+      <div class="mx-auto grid max-w-lg grid-cols-3 gap-3">
+        <button
+          class="flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-xs font-semibold"
+          :class="activeTab === 'menu' ? 'bg-bordeaux text-beige shadow-lg shadow-black/20' : 'bg-black/10 text-bordeaux'"
+          type="button"
+          @click="activeTab = 'menu'"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5">
+            <path d="M8 3h8" />
+            <path d="M6 7h12" />
+            <path d="M6 7v14h12V7" />
+            <path d="M10 11h4" />
+            <path d="M10 15h4" />
+          </svg>
+          <span>Menu du jour</span>
+        </button>
+        <button
+          class="flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-xs font-semibold"
+          :class="activeTab === 'resto' ? 'bg-bordeaux text-beige shadow-lg shadow-black/20' : 'bg-black/10 text-bordeaux'"
+          type="button"
+          @click="activeTab = 'resto'"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5">
+            <path d="M3 10l9-7 9 7" />
+            <path d="M5 10v10h14V10" />
+            <path d="M9 20v-6h6v6" />
+          </svg>
+          <span>Mon resto</span>
+        </button>
+        <button
+          class="flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-xs font-semibold"
+          :class="activeTab === 'compte' ? 'bg-bordeaux text-beige shadow-lg shadow-black/20' : 'bg-black/10 text-bordeaux'"
+          type="button"
+          @click="activeTab = 'compte'"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+            <path d="M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />
+          </svg>
+          <span>Compte</span>
+        </button>
+      </div>
     </div>
 
     <input

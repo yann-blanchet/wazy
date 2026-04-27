@@ -90,49 +90,49 @@ async function back() {
   <main class="mx-auto max-w-lg p-6">
     <div class="flex items-center justify-between">
       <h1 class="text-2xl font-semibold">Admin</h1>
-      <button class="text-sm text-bordeaux/70 underline" type="button" @click="back">Retour</button>
+      <button class="text-sm text-primary/70 underline" type="button" @click="back">Retour</button>
     </div>
 
     <section class="mt-6 rounded-2xl bg-black/5 p-5">
-      <h2 class="text-lg font-semibold text-bordeaux">Email admin</h2>
-      <p class="mt-1 text-sm text-bordeaux/70">Utilisé pour récupérer et régénérer la clé maître.</p>
+      <h2 class="text-lg font-semibold text-primary">Email admin</h2>
+      <p class="mt-1 text-sm text-primary/70">Utilisé pour récupérer et régénérer la clé maître.</p>
 
       <div v-if="auth.isMaster" class="mt-4 grid gap-2">
         <input
           v-model="adminEmail"
           type="email"
-          class="w-full rounded-xl border border-black/10 bg-black/5 px-3 py-3 text-sm text-bordeaux outline-none focus:border-bordeaux/60"
+          class="w-full rounded-xl border border-black/10 bg-black/5 px-3 py-3 text-sm text-primary outline-none focus:border-primary/60"
           placeholder="admin@restaurant.com"
           autocomplete="email"
         />
         <button
-          class="w-full rounded-xl bg-black/10 px-4 py-3 text-sm text-bordeaux hover:bg-black/15"
+          class="w-full rounded-xl bg-black/10 px-4 py-3 text-sm text-primary hover:bg-black/15"
           type="button"
           @click="saveAdminEmail"
         >
           Enregistrer l’email admin
         </button>
-        <div v-if="adminEmailStatus" class="text-xs text-bordeaux/70">{{ adminEmailStatus }}</div>
+        <div v-if="adminEmailStatus" class="text-xs text-primary/70">{{ adminEmailStatus }}</div>
       </div>
 
-      <div v-else class="mt-4 text-sm text-bordeaux/70">Disponible uniquement avec la clé maître.</div>
+      <div v-else class="mt-4 text-sm text-primary/70">Disponible uniquement avec la clé maître.</div>
     </section>
 
     <section class="mt-4 rounded-2xl bg-black/5 p-5">
-      <h2 class="text-lg font-semibold text-bordeaux">Récupération clé maître</h2>
-      <p class="mt-1 text-sm text-bordeaux/70">Envoie un code par email, puis régénère la clé maître.</p>
+      <h2 class="text-lg font-semibold text-primary">Récupération clé maître</h2>
+      <p class="mt-1 text-sm text-primary/70">Envoie un code par email, puis régénère la clé maître.</p>
 
       <div class="mt-4 grid gap-2">
         <input
           v-model="recoveryEmail"
           type="email"
-          class="w-full rounded-xl border border-black/10 bg-black/5 px-3 py-3 text-sm text-bordeaux outline-none focus:border-bordeaux/60"
+          class="w-full rounded-xl border border-black/10 bg-black/5 px-3 py-3 text-sm text-primary outline-none focus:border-primary/60"
           placeholder="Email admin"
           autocomplete="email"
         />
 
         <button
-          class="w-full rounded-xl bg-black/10 px-4 py-3 text-sm text-bordeaux hover:bg-black/15"
+          class="w-full rounded-xl bg-black/10 px-4 py-3 text-sm text-primary hover:bg-black/15"
           type="button"
           @click="requestRecoveryToken"
         >
@@ -141,13 +141,13 @@ async function back() {
 
         <input
           v-model="recoveryToken"
-          class="w-full rounded-xl border border-black/10 bg-black/5 px-3 py-3 font-mono text-sm text-bordeaux outline-none focus:border-bordeaux/60"
+          class="w-full rounded-xl border border-black/10 bg-black/5 px-3 py-3 font-mono text-sm text-primary outline-none focus:border-primary/60"
           placeholder="Code reçu par email"
           autocomplete="one-time-code"
         />
 
         <button
-          class="w-full rounded-xl bg-bordeaux px-4 py-3 text-sm font-semibold text-beige hover:bg-bordeaux/90"
+          class="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-background hover:bg-primary/90"
           type="button"
           :disabled="recoveryToken.trim().length === 0"
           @click="confirmRecoveryToken"
@@ -156,10 +156,10 @@ async function back() {
         </button>
 
         <div v-if="recoveredMasterKey" class="rounded-xl bg-black/10 p-3">
-          <div class="text-xs text-bordeaux/70">Nouvelle clé maître :</div>
-          <div class="mt-1 break-all font-mono text-sm text-bordeaux">{{ recoveredMasterKey }}</div>
+          <div class="text-xs text-primary/70">Nouvelle clé maître :</div>
+          <div class="mt-1 break-all font-mono text-sm text-primary">{{ recoveredMasterKey }}</div>
           <button
-            class="mt-2 rounded-lg bg-black/10 px-3 py-2 text-sm text-bordeaux hover:bg-black/15"
+            class="mt-2 rounded-lg bg-black/10 px-3 py-2 text-sm text-primary hover:bg-black/15"
             type="button"
             @click="copyRecoveredMasterKey"
           >
@@ -167,7 +167,7 @@ async function back() {
           </button>
         </div>
 
-        <div v-if="recoveryStatus" class="text-xs text-bordeaux/70">{{ recoveryStatus }}</div>
+        <div v-if="recoveryStatus" class="text-xs text-primary/70">{{ recoveryStatus }}</div>
       </div>
     </section>
   </main>

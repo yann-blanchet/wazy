@@ -61,27 +61,27 @@ onMounted(async () => {
     <div class="flex items-center justify-between">
       <div class="w-12" />
       <div class="text-2xl font-semibold">Équipe</div>
-      <button class="text-sm text-bordeaux/70 underline" type="button" @click="goBack">Retour</button>
+      <button class="text-sm text-primary/70 underline" type="button" @click="goBack">Retour</button>
     </div>
 
     <section class="mt-6 rounded-2xl bg-black/5 p-5">
       <h2 class="text-lg font-semibold">Accès équipe</h2>
 
-      <div v-if="!auth.isMaster" class="mt-4 rounded-xl bg-black/10 p-4 text-sm text-bordeaux/70">
+      <div v-if="!auth.isMaster" class="mt-4 rounded-xl bg-black/10 p-4 text-sm text-primary/70">
         Seul le compte maître peut voir et modifier le code de connexion.
       </div>
 
       <template v-else>
         <div class="mt-4 grid gap-2">
-          <div class="text-sm text-bordeaux/70">Code de connexion pour l'équipe</div>
+          <div class="text-sm text-primary/70">Code de connexion pour l'équipe</div>
           <input
             v-model="workerKey"
-            class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 font-mono text-sm text-bordeaux outline-none focus:border-bordeaux/60"
+            class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 font-mono text-sm text-primary outline-none focus:border-primary/60"
             autocomplete="off"
             autocapitalize="off"
             spellcheck="false"
           />
-          <div class="text-xs text-bordeaux/70">6–64 caractères. Lettres, chiffres, <span class="font-mono">_</span> et <span class="font-mono">-</span> uniquement.</div>
+          <div class="text-xs text-primary/70">6–64 caractères. Lettres, chiffres, <span class="font-mono">_</span> et <span class="font-mono">-</span> uniquement.</div>
           <div v-if="workerKeyHasInput" class="text-xs" :class="workerKeyValid ? 'text-green-700' : 'text-red-700'">
             {{ workerKeyValid ? 'Code valide' : 'Code invalide' }}
           </div>
@@ -97,7 +97,7 @@ onMounted(async () => {
             Enregistrer le code
           </button>
 
-          <div v-if="workerKeyStatus" class="text-sm text-bordeaux/70">{{ workerKeyStatus }}</div>
+          <div v-if="workerKeyStatus" class="text-sm text-primary/70">{{ workerKeyStatus }}</div>
         </div>
       </template>
     </section>

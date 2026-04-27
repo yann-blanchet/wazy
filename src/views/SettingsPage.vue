@@ -195,14 +195,14 @@ async function logout() {
   <main class="mx-auto max-w-lg p-6">
     <div class="flex items-center justify-between">
       <h1 class="text-2xl font-semibold">Paramètres</h1>
-      <button class="text-sm text-bordeaux/70 underline" @click="router.push('/dashboard')">
+      <button class="text-sm text-primary/70 underline" @click="router.push('/dashboard')">
         Retour
       </button>
     </div>
 
     <section class="mt-6 rounded-2xl bg-black/5 p-5">
       <h2 class="text-lg font-semibold">Session</h2>
-      <p class="mt-1 text-sm text-bordeaux/70">Se déconnecter de cet appareil.</p>
+      <p class="mt-1 text-sm text-primary/70">Se déconnecter de cet appareil.</p>
 
       <button class="mt-4 w-full rounded-xl bg-black/10 px-4 py-3 hover:bg-black/15" @click="logout">
         Déconnexion
@@ -212,19 +212,19 @@ async function logout() {
     <div v-if="cuisineSheetOpen" class="fixed inset-0 z-[80]">
       <div class="absolute inset-0 bg-black/60" @click="cuisineSheetOpen = false" />
       <div
-        class="absolute bottom-0 left-0 right-0 rounded-t-3xl border-t border-black/10 bg-beige px-5 py-4"
+        class="absolute bottom-0 left-0 right-0 rounded-t-3xl border-t border-black/10 bg-background px-5 py-4"
         style="padding-bottom: max(env(safe-area-inset-bottom), 16px)"
       >
         <div class="flex items-center justify-between">
-          <div class="text-sm font-medium text-bordeaux">Type de cuisine</div>
-          <button class="text-sm text-bordeaux/70 underline" @click="cuisineSheetOpen = false">Fermer</button>
+          <div class="text-sm font-medium text-primary">Type de cuisine</div>
+          <button class="text-sm text-primary/70 underline" @click="cuisineSheetOpen = false">Fermer</button>
         </div>
 
         <div class="mt-4 grid grid-cols-2 gap-2">
           <button
             v-for="c in cuisineOptions"
             :key="c"
-            class="rounded-xl bg-black/5 px-4 py-3 text-sm text-bordeaux ring-1 ring-black/10 hover:bg-black/10"
+            class="rounded-xl bg-black/5 px-4 py-3 text-sm text-primary ring-1 ring-black/10 hover:bg-black/10"
             @click="pickCuisine(c)"
           >
             {{ c }}

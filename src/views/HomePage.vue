@@ -7,7 +7,7 @@ const router = useRouter()
 <template>
   <main class="mx-auto max-w-lg p-6">
     <h1 class="text-3xl font-semibold tracking-tight">titre menu</h1>
-    <p class="mt-2 text-bordeaux/70">
+    <p class="mt-2 text-primary/70">
       Publiez le menu du jour avec une seule photo.
     </p>
 
@@ -20,7 +20,7 @@ const router = useRouter()
       </button>
 
       <button
-        class="rounded-xl bg-bordeaux px-4 py-3 font-medium text-beige hover:bg-bordeaux/90"
+        class="rounded-xl bg-primary px-4 py-3 font-medium text-background hover:bg-primary/90"
         @click="router.push('/login?mode=create')"
       >
         Créer un compte

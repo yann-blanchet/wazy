@@ -13,5 +13,5 @@ onMounted(async () => {
 </script>
 
 <template>
-  <main class="min-h-dvh bg-beige" />
+  <main class="min-h-dvh bg-background" />
 </template>

@@ -85,53 +85,53 @@ onMounted(async () => {
     <div class="flex items-center justify-between">
       <div class="w-12" />
       <div class="text-2xl font-semibold">Infos restaurant</div>
-      <button class="text-sm text-bordeaux/70 underline" type="button" @click="goBack">Retour</button>
+      <button class="text-sm text-primary/70 underline" type="button" @click="goBack">Retour</button>
     </div>
 
     <section class="mt-6 rounded-2xl bg-black/5 p-5">
  
       <div class="mt-4 grid gap-3">
         <label class="grid gap-2">
-          <span class="text-sm text-bordeaux/70">Nom</span>
+          <span class="text-sm text-primary/70">Nom</span>
           <input
             v-model="name"
-            class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 text-sm text-bordeaux outline-none focus:border-bordeaux/60"
+            class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 text-sm text-primary outline-none focus:border-primary/60"
             autocomplete="organization"
           />
         </label>
 
         <label class="grid gap-2">
-          <span class="text-sm text-bordeaux/70">Adresse</span>
+          <span class="text-sm text-primary/70">Adresse</span>
           <input
             v-model="address"
-            class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 text-sm text-bordeaux outline-none focus:border-bordeaux/60"
+            class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 text-sm text-primary outline-none focus:border-primary/60"
             autocomplete="street-address"
           />
         </label>
 
         <label class="grid gap-2">
-          <span class="text-sm text-bordeaux/70">Ville</span>
+          <span class="text-sm text-primary/70">Ville</span>
           <input
             v-model="city"
-            class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 text-sm text-bordeaux outline-none focus:border-bordeaux/60"
+            class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 text-sm text-primary outline-none focus:border-primary/60"
             autocomplete="address-level2"
           />
         </label>
 
         <label class="grid gap-2">
-          <span class="text-sm text-bordeaux/70">Téléphone</span>
+          <span class="text-sm text-primary/70">Téléphone</span>
           <input
             v-model="phone"
-            class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 text-sm text-bordeaux outline-none focus:border-bordeaux/60"
+            class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 text-sm text-primary outline-none focus:border-primary/60"
             autocomplete="tel"
           />
         </label>
 
         <label class="grid gap-2">
-          <span class="text-sm text-bordeaux/70">Type de cuisine</span>
+          <span class="text-sm text-primary/70">Type de cuisine</span>
           <input
             v-model="cuisineType"
-            class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 text-sm text-bordeaux outline-none focus:border-bordeaux/60"
+            class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 text-sm text-primary outline-none focus:border-primary/60"
             autocomplete="off"
             readonly
             @click="cuisineSheetOpen = true"
@@ -142,26 +142,26 @@ onMounted(async () => {
           Enregistrer
         </button>
 
-        <div v-if="profileStatus" class="text-sm text-bordeaux/70">{{ profileStatus }}</div>
+        <div v-if="profileStatus" class="text-sm text-primary/70">{{ profileStatus }}</div>
       </div>
     </section>
 
     <div v-if="cuisineSheetOpen" class="fixed inset-0 z-[80]">
       <div class="absolute inset-0 bg-black/60" @click="cuisineSheetOpen = false" />
       <div
-        class="absolute bottom-0 left-0 right-0 rounded-t-3xl border-t border-black/10 bg-beige px-5 py-4"
+        class="absolute bottom-0 left-0 right-0 rounded-t-3xl border-t border-black/10 bg-background px-5 py-4"
         style="padding-bottom: max(env(safe-area-inset-bottom), 16px)"
       >
         <div class="flex items-center justify-between">
-          <div class="text-sm font-medium text-bordeaux">Type de cuisine</div>
-          <button class="text-sm text-bordeaux/70 underline" type="button" @click="cuisineSheetOpen = false">Fermer</button>
+          <div class="text-sm font-medium text-primary">Type de cuisine</div>
+          <button class="text-sm text-primary/70 underline" type="button" @click="cuisineSheetOpen = false">Fermer</button>
         </div>
 
         <div class="mt-4 grid grid-cols-2 gap-2">
           <button
             v-for="c in cuisineOptions"
             :key="c"
-            class="rounded-xl bg-black/5 px-4 py-3 text-sm text-bordeaux ring-1 ring-black/10 hover:bg-black/10"
+            class="rounded-xl bg-black/5 px-4 py-3 text-sm text-primary ring-1 ring-black/10 hover:bg-black/10"
             type="button"
             @click="pickCuisine(c)"
           >

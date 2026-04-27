@@ -150,22 +150,22 @@ onMounted(async () => {
 
 <template>
   <main class="mx-auto flex h-dvh max-w-lg flex-col overflow-hidden">
-    <div class="sticky top-0 z-[60] bg-beige/95 px-6 pt-4 backdrop-blur">
+    <div class="sticky top-0 z-[60] bg-background/95 px-6 pt-4 backdrop-blur">
       <div class="flex items-center justify-between">
           <div class="w-12" />
         <div class="text-2xl font-semibold">Carte</div>
-      <button class="text-sm text-bordeaux/70 underline" type="button" @click="goBack">Retour</button>
+      <button class="text-sm text-primary/70 underline" type="button" @click="goBack">Retour</button>
       </div>
     </div>
 
     <section class="px-6">
       <div class=" p-5">
-        <p class="mt-1 text-sm text-bordeaux/70">Carte permanente du restaurant (entrées, plats, desserts).</p>
+        <p class="mt-1 text-sm text-primary/70">Carte permanente du restaurant (entrées, plats, desserts).</p>
       </div>
     </section>
 
     <section class="flex-1 overflow-y-auto px-6 pb-32 pt-4">
-      <div v-if="permanentMenus.length === 0" class="rounded-xl bg-black/10 p-4 text-sm text-bordeaux/70">
+      <div v-if="permanentMenus.length === 0" class="rounded-xl bg-black/10 p-4 text-sm text-primary/70">
         Aucune carte permanente pour le moment.
       </div>
       <div v-else class="grid grid-cols-1 gap-3">
@@ -228,19 +228,19 @@ onMounted(async () => {
       </div>
 
       <div class="mt-4 grid gap-3">
-        <div v-if="permanentStatus" class="text-sm text-bordeaux/70">{{ permanentStatus }}</div>
+        <div v-if="permanentStatus" class="text-sm text-primary/70">{{ permanentStatus }}</div>
       </div>
     </section>
 
     <input ref="permanentFileInputEl" class="sr-only" type="file" accept="image/*" @change="onPermanentPick" />
 
     <div
-      class="fixed inset-x-0 bottom-0 z-[80] border-t border-black/10 bg-beige/95 px-4 py-3 backdrop-blur"
+      class="fixed inset-x-0 bottom-0 z-[80] border-t border-black/10 bg-background/95 px-4 py-3 backdrop-blur"
       style="padding-bottom: max(env(safe-area-inset-bottom), 12px)"
     >
       <div class="mx-auto max-w-lg">
         <button
-          class="w-full rounded-xl bg-bordeaux px-4 py-3 text-sm font-semibold text-beige shadow-lg shadow-black/20 hover:bg-bordeaux/90"
+          class="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-background shadow-lg shadow-black/20 hover:bg-primary/90"
           type="button"
           @click="triggerPermanentPick"
         >
@@ -256,19 +256,19 @@ onMounted(async () => {
       </div>
 
       <div
-        class="absolute inset-x-0 bottom-0 border-t border-black/10 bg-beige/95 px-5 py-4 backdrop-blur"
+        class="absolute inset-x-0 bottom-0 border-t border-black/10 bg-background/95 px-5 py-4 backdrop-blur"
         style="padding-bottom: max(env(safe-area-inset-bottom), 16px)"
       >
         <div class="mx-auto grid max-w-lg grid-cols-2 gap-3">
           <button
-            class="rounded-xl bg-black/10 px-4 py-3 text-sm text-bordeaux hover:bg-black/15"
+            class="rounded-xl bg-black/10 px-4 py-3 text-sm text-primary hover:bg-black/15"
             :disabled="!auth.isMaster"
             type="button"
             @click="deleteFromViewer"
           >
             Supprimer
           </button>
-          <button class="rounded-xl bg-black/10 px-4 py-3 text-sm text-bordeaux hover:bg-black/15" type="button" @click="closeViewer">
+          <button class="rounded-xl bg-black/10 px-4 py-3 text-sm text-primary hover:bg-black/15" type="button" @click="closeViewer">
             Fermer
           </button>
         </div>

@@ -239,14 +239,14 @@ async function onTakePhotoChange(e: Event) {
     <div class="flex items-center justify-between">
       <h1 class="text-2xl font-bold">{{ activeTabTitle }}</h1>
 
-      <div class="ml-4 truncate text-sm font-semibold text-bordeaux">{{ restaurantName || auth.id || '—' }}</div>
+      <div class="ml-4 truncate text-sm font-semibold text-primary">{{ restaurantName || auth.id || '—' }}</div>
     </div>
 
     <div class="mt-6 flex flex-1 flex-col overflow-hidden">
       <div v-if="activeTab === 'menu'" class="flex flex-1 flex-col overflow-hidden pb-24">
         <div class="flex flex-1 min-h-0 flex-col gap-2 ">
           <div class="flex items-center justify-end gap-3">
-            <div class="text-xs text-bordeaux/70">{{ lastUpdatedText }}</div>
+            <div class="text-xs text-primary/70">{{ lastUpdatedText }}</div>
           </div>
 
           <div class="flex min-h-0 flex-1 overflow-hidden rounded-2xl bg-black/10">
@@ -260,17 +260,17 @@ async function onTakePhotoChange(e: Event) {
               @error="serverPreviewState = 'missing'"
               @click="openViewer(serverPreviewUrl)"
             />
-            <div v-if="!serverPreviewUrl || serverPreviewState === 'loading'" class="flex flex-1 items-center justify-center p-4 text-sm text-bordeaux/70">
+            <div v-if="!serverPreviewUrl || serverPreviewState === 'loading'" class="flex flex-1 items-center justify-center p-4 text-sm text-primary/70">
               {{ serverPreviewUrl ? 'Chargement…' : "Pas de menu pour aujourd'hui." }}
             </div>
-            <div v-else-if="serverPreviewState === 'missing'" class="flex flex-1 items-center justify-center p-4 text-sm text-bordeaux/70">
+            <div v-else-if="serverPreviewState === 'missing'" class="flex flex-1 items-center justify-center p-4 text-sm text-primary/70">
               Pas de menu pour aujourd'hui.
             </div>
           </div>
 
           <div class="mt-auto pt-2">
             <button
-              class="w-full rounded-xl bg-bordeaux px-4 py-3 text-sm font-semibold text-beige shadow-lg shadow-black/20 hover:bg-bordeaux/90"
+              class="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-background shadow-lg shadow-black/20 hover:bg-primary/90"
               type="button"
               @click="selectedMenu ? deleteMenuForDate() : triggerCamera()"
             >
@@ -282,37 +282,37 @@ async function onTakePhotoChange(e: Event) {
 
       <div v-else-if="activeTab === 'resto'" class="grid gap-2 overflow-y-auto pb-24">
         
-        <button class="flex w-full items-center justify-between rounded-xl bg-black/5 px-4 py-3 text-left text-sm text-bordeaux hover:bg-black/10" type="button" @click="go('/history')">
+        <button class="flex w-full items-center justify-between rounded-xl bg-black/5 px-4 py-3 text-left text-sm text-primary hover:bg-black/10" type="button" @click="go('/history')">
           <span>Voir tous les menus du jour</span>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-bordeaux/60">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-primary/60">
             <path d="M9 18l6-6-6-6" />
           </svg>
         </button>
 
-        <button class="flex w-full items-center justify-between rounded-xl bg-black/5 px-4 py-3 text-left text-sm text-bordeaux hover:bg-black/10" type="button" @click="go('/infos')">
+        <button class="flex w-full items-center justify-between rounded-xl bg-black/5 px-4 py-3 text-left text-sm text-primary hover:bg-black/10" type="button" @click="go('/infos')">
           <span>Infos</span>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-bordeaux/60">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-primary/60">
             <path d="M9 18l6-6-6-6" />
           </svg>
         </button>
 
-        <button class="flex w-full items-center justify-between rounded-xl bg-black/5 px-4 py-3 text-left text-sm text-bordeaux hover:bg-black/10" type="button" @click="go('/carte')">
+        <button class="flex w-full items-center justify-between rounded-xl bg-black/5 px-4 py-3 text-left text-sm text-primary hover:bg-black/10" type="button" @click="go('/carte')">
           <span>Carte</span>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-bordeaux/60">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-primary/60">
             <path d="M9 18l6-6-6-6" />
           </svg>
         </button>
 
-        <button class="flex w-full items-center justify-between rounded-xl bg-black/5 px-4 py-3 text-left text-sm text-bordeaux hover:bg-black/10" type="button" @click="go('/galerie')">
+        <button class="flex w-full items-center justify-between rounded-xl bg-black/5 px-4 py-3 text-left text-sm text-primary hover:bg-black/10" type="button" @click="go('/galerie')">
           <span>Galerie</span>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-bordeaux/60">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-primary/60">
             <path d="M9 18l6-6-6-6" />
           </svg>
         </button>
 
-        <button class="flex w-full items-center justify-between rounded-xl bg-black/5 px-4 py-3 text-left text-sm text-bordeaux hover:bg-black/10" type="button" @click="go('/lien-public')">
+        <button class="flex w-full items-center justify-between rounded-xl bg-black/5 px-4 py-3 text-left text-sm text-primary hover:bg-black/10" type="button" @click="go('/lien-public')">
           <span>Lien public</span>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-bordeaux/60">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-primary/60">
             <path d="M9 18l6-6-6-6" />
           </svg>
         </button>
@@ -320,30 +320,30 @@ async function onTakePhotoChange(e: Event) {
 
       <div v-else class="grid gap-2 overflow-y-auto pb-24">
         
-        <button class="flex w-full items-center justify-between rounded-xl bg-black/5 px-4 py-3 text-left text-sm text-bordeaux hover:bg-black/10" type="button" @click="go('/recup-admin')">
+        <button class="flex w-full items-center justify-between rounded-xl bg-black/5 px-4 py-3 text-left text-sm text-primary hover:bg-black/10" type="button" @click="go('/recup-admin')">
           <span>Admin (email + récupération)</span>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-bordeaux/60">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-primary/60">
             <path d="M9 18l6-6-6-6" />
           </svg>
         </button>
 
-        <button class="flex w-full items-center justify-between rounded-xl bg-black/5 px-4 py-3 text-left text-sm text-bordeaux hover:bg-black/10" type="button" @click="go('/equipe')">
+        <button class="flex w-full items-center justify-between rounded-xl bg-black/5 px-4 py-3 text-left text-sm text-primary hover:bg-black/10" type="button" @click="go('/equipe')">
           <span>Équipe</span>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-bordeaux/60">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-primary/60">
             <path d="M9 18l6-6-6-6" />
           </svg>
         </button>
 
-        <button class="flex w-full items-center justify-between rounded-xl bg-black/5 px-4 py-3 text-left text-sm text-bordeaux hover:bg-black/10" type="button" @click="go('/stats')">
+        <button class="flex w-full items-center justify-between rounded-xl bg-black/5 px-4 py-3 text-left text-sm text-primary hover:bg-black/10" type="button" @click="go('/stats')">
           <span>Stats</span>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-bordeaux/60">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-primary/60">
             <path d="M9 18l6-6-6-6" />
           </svg>
         </button>
 
-        <button class="flex w-full items-center justify-between rounded-xl bg-black/10 px-4 py-3 text-left text-sm text-bordeaux hover:bg-black/15" type="button" @click="logout">
+        <button class="flex w-full items-center justify-between rounded-xl bg-black/10 px-4 py-3 text-left text-sm text-primary hover:bg-black/15" type="button" @click="logout">
           <span>Déconnexion</span>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-bordeaux/60">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-primary/60">
             <path d="M9 18l6-6-6-6" />
           </svg>
         </button>
@@ -356,13 +356,13 @@ async function onTakePhotoChange(e: Event) {
     </div>
 
     <div
-      class="fixed inset-x-0 bottom-0 z-[80] border-t border-black/10 bg-beige/95 px-4 py-3 backdrop-blur"
+      class="fixed inset-x-0 bottom-0 z-[80] border-t border-black/10 bg-background/95 px-4 py-3 backdrop-blur"
       style="padding-bottom: max(env(safe-area-inset-bottom), 12px)"
     >
       <div class="mx-auto grid max-w-lg grid-cols-3 gap-3">
         <button
           class="flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-xs font-semibold"
-          :class="activeTab === 'menu' ? 'bg-bordeaux text-beige shadow-lg shadow-black/20' : 'bg-black/10 text-bordeaux'"
+          :class="activeTab === 'menu' ? 'bg-primary text-background shadow-lg shadow-black/20' : 'bg-black/10 text-primary'"
           type="button"
           @click="activeTab = 'menu'"
         >
@@ -377,7 +377,7 @@ async function onTakePhotoChange(e: Event) {
         </button>
         <button
           class="flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-xs font-semibold"
-          :class="activeTab === 'resto' ? 'bg-bordeaux text-beige shadow-lg shadow-black/20' : 'bg-black/10 text-bordeaux'"
+          :class="activeTab === 'resto' ? 'bg-primary text-background shadow-lg shadow-black/20' : 'bg-black/10 text-primary'"
           type="button"
           @click="activeTab = 'resto'"
         >
@@ -390,7 +390,7 @@ async function onTakePhotoChange(e: Event) {
         </button>
         <button
           class="flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-xs font-semibold"
-          :class="activeTab === 'compte' ? 'bg-bordeaux text-beige shadow-lg shadow-black/20' : 'bg-black/10 text-bordeaux'"
+          :class="activeTab === 'compte' ? 'bg-primary text-background shadow-lg shadow-black/20' : 'bg-black/10 text-primary'"
           type="button"
           @click="activeTab = 'compte'"
         >

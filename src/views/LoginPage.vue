@@ -116,7 +116,7 @@ function setMode(m: 'login' | 'create' | 'recover') {
 <template>
   <main class="mx-auto max-w-lg p-6">
     <h1 class="text-3xl font-semibold tracking-tight">titre menu</h1>
-    <p class="mt-2 text-bordeaux/70">Publiez le menu du jour avec une seule photo.</p>
+    <p class="mt-2 text-primary/70">Publiez le menu du jour avec une seule photo.</p>
 
 
     <div class="mt-10">
@@ -126,10 +126,10 @@ function setMode(m: 'login' | 'create' | 'recover') {
 
       <div v-if="mode === 'create'" class="mt-6 grid gap-3">
         <label class="grid gap-2">
-          <span class="text-sm text-bordeaux/70">Choisissez votre identifiant public</span>
+          <span class="text-sm text-primary/70">Choisissez votre identifiant public</span>
           <input
             v-model="desiredId"
-            class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 font-mono text-base text-bordeaux outline-none focus:border-bordeaux/60"
+            class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 font-mono text-base text-primary outline-none focus:border-primary/60"
             placeholder="e.g. le-bistrot"
             autocomplete="off"
             autocapitalize="off"
@@ -138,19 +138,19 @@ function setMode(m: 'login' | 'create' | 'recover') {
         </label>
 
         <button
-          class="rounded-xl bg-bordeaux px-4 py-3 font-medium text-beige hover:bg-bordeaux/90"
+          class="rounded-xl bg-primary px-4 py-3 font-medium text-background hover:bg-primary/90"
           @click="createAccount"
         >
           Créer → obtenir la clé maître
         </button>
 
-        <div v-if="createError" class="rounded-xl bg-black/10 p-4 text-sm text-bordeaux/70">
+        <div v-if="createError" class="rounded-xl bg-black/10 p-4 text-sm text-primary/70">
           {{ createError }}
         </div>
 
         <div v-if="masterKeyShown" class="rounded-xl bg-black/10 p-4">
-          <div class="text-sm text-bordeaux/70">Clé maître (affichée une seule fois) :</div>
-          <div class="mt-2 break-all font-mono text-sm text-bordeaux">{{ masterKeyShown }}</div>
+          <div class="text-sm text-primary/70">Clé maître (affichée une seule fois) :</div>
+          <div class="mt-2 break-all font-mono text-sm text-primary">{{ masterKeyShown }}</div>
           <button
             class="mt-3 rounded-lg bg-black/10 px-3 py-2 text-sm hover:bg-black/15"
             @click="useMasterKeyToLogin"
@@ -162,10 +162,10 @@ function setMode(m: 'login' | 'create' | 'recover') {
 
       <div v-else-if="mode === 'recover'" class="mt-6 grid gap-3">
         <label class="grid gap-2">
-          <span class="text-sm text-bordeaux/70">Identifiant du restaurant</span>
+          <span class="text-sm text-primary/70">Identifiant du restaurant</span>
           <input
             v-model="recoveryRestaurantId"
-            class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 font-mono text-base text-bordeaux outline-none focus:border-bordeaux/60"
+            class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 font-mono text-base text-primary outline-none focus:border-primary/60"
             placeholder="ex: le-bistrot"
             autocomplete="off"
             autocapitalize="off"
@@ -174,11 +174,11 @@ function setMode(m: 'login' | 'create' | 'recover') {
         </label>
 
         <label class="grid gap-2">
-          <span class="text-sm text-bordeaux/70">Email admin</span>
+          <span class="text-sm text-primary/70">Email admin</span>
           <input
             v-model="recoveryEmail"
             type="email"
-            class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 text-base text-bordeaux outline-none focus:border-bordeaux/60"
+            class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 text-base text-primary outline-none focus:border-primary/60"
             placeholder="admin@restaurant.com"
             autocomplete="email"
           />
@@ -189,17 +189,17 @@ function setMode(m: 'login' | 'create' | 'recover') {
         </button>
 
         <label class="grid gap-2">
-          <span class="text-sm text-bordeaux/70">Code reçu par email</span>
+          <span class="text-sm text-primary/70">Code reçu par email</span>
           <input
             v-model="recoveryToken"
-            class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 font-mono text-base text-bordeaux outline-none focus:border-bordeaux/60"
+            class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 font-mono text-base text-primary outline-none focus:border-primary/60"
             placeholder="Code"
             autocomplete="one-time-code"
           />
         </label>
 
         <button
-          class="rounded-xl bg-bordeaux px-4 py-3 font-medium text-beige hover:bg-bordeaux/90"
+          class="rounded-xl bg-primary px-4 py-3 font-medium text-background hover:bg-primary/90"
           type="button"
           :disabled="recoveryRestaurantId.trim().length === 0 || recoveryToken.trim().length === 0"
           @click="confirmRecoveryToken"
@@ -208,18 +208,18 @@ function setMode(m: 'login' | 'create' | 'recover') {
         </button>
 
         <div v-if="recoveredMasterKey" class="rounded-xl bg-black/10 p-4">
-          <div class="text-sm text-bordeaux/70">Nouvelle clé maître :</div>
-          <div class="mt-2 break-all font-mono text-sm text-bordeaux">{{ recoveredMasterKey }}</div>
+          <div class="text-sm text-primary/70">Nouvelle clé maître :</div>
+          <div class="mt-2 break-all font-mono text-sm text-primary">{{ recoveredMasterKey }}</div>
           <button class="mt-3 rounded-lg bg-black/10 px-3 py-2 text-sm hover:bg-black/15" type="button" @click="copyRecoveredMasterKey">
             Copier
           </button>
         </div>
 
-        <div v-if="recoveryStatus" class="rounded-xl bg-black/10 p-4 text-sm text-bordeaux/70">
+        <div v-if="recoveryStatus" class="rounded-xl bg-black/10 p-4 text-sm text-primary/70">
           {{ recoveryStatus }}
         </div>
 
-        <button class="text-left text-sm text-bordeaux/70 underline" type="button" @click="setMode('login')">Retour à la connexion</button>
+        <button class="text-left text-sm text-primary/70 underline" type="button" @click="setMode('login')">Retour à la connexion</button>
       </div>
 
       <div v-else class="mt-6 grid gap-3">
@@ -227,7 +227,7 @@ function setMode(m: 'login' | 'create' | 'recover') {
           
           <input
             v-model="key"
-            class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 font-mono text-base text-bordeaux outline-none focus:border-bordeaux/60"
+            class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 font-mono text-base text-primary outline-none focus:border-primary/60"
             placeholder="code"
             autocomplete="off"
             autocapitalize="off"
@@ -243,12 +243,12 @@ function setMode(m: 'login' | 'create' | 'recover') {
           Connexion
         </button>
 
-        <button class="text-left text-sm text-bordeaux/70 underline" type="button" @click="setMode('recover')">Clé oubliée ?</button>
+        <button class="text-left text-sm text-primary/70 underline" type="button" @click="setMode('recover')">Clé oubliée ?</button>
 
         <div class="mt-3 rounded-xl bg-black/5 p-4">
-          <div class="text-sm text-bordeaux/70">Pas encore de compte ?</div>
+          <div class="text-sm text-primary/70">Pas encore de compte ?</div>
           <button
-            class="mt-3 w-full rounded-xl bg-bordeaux px-4 py-3 text-left font-medium text-beige hover:bg-bordeaux/90"
+            class="mt-3 w-full rounded-xl bg-primary px-4 py-3 text-left font-medium text-background hover:bg-primary/90"
             type="button"
             @click="setMode('create')"
           >

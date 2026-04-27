@@ -49,17 +49,17 @@ onMounted(load)
   <main class="mx-auto max-w-4xl p-6">
     <div class="flex items-center justify-between">
       <h1 class="text-2xl font-semibold">History</h1>
-      <button class="text-sm text-bordeaux/70 underline" @click="router.push('/dashboard')">
+      <button class="text-sm text-primary/70 underline" @click="router.push('/dashboard')">
         Back
       </button>
     </div>
 
-    <div v-if="error" class="mt-6 rounded-xl bg-black/5 p-4 text-sm text-bordeaux/70">
+    <div v-if="error" class="mt-6 rounded-xl bg-black/5 p-4 text-sm text-primary/70">
       {{ error }}
     </div>
 
     <div v-else class="mt-6">
-      <div v-if="tiles.length === 0" class="rounded-xl bg-black/5 p-4 text-sm text-bordeaux/70">
+      <div v-if="tiles.length === 0" class="rounded-xl bg-black/5 p-4 text-sm text-primary/70">
         No photos yet.
       </div>
 
@@ -75,7 +75,7 @@ onMounted(load)
           <div class="aspect-[4/5] overflow-hidden">
             <img class="h-full w-full object-cover transition-transform group-hover:scale-[1.02]" :src="t.url" :alt="t.date" />
           </div>
-          <div class="px-3 py-2 text-xs text-bordeaux/70">{{ t.date }}</div>
+          <div class="px-3 py-2 text-xs text-primary/70">{{ t.date }}</div>
         </a>
       </div>
     </div>

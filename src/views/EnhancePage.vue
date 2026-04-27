@@ -295,11 +295,11 @@ onMounted(async () => {
 </script>
 
 <template>
-  <main class="min-h-dvh bg-beige">
-    <div class="sticky top-0 z-10 border-b border-black/10 bg-beige px-5 py-4" style="padding-top: max(env(safe-area-inset-top), 16px)">
+  <main class="min-h-dvh bg-background">
+    <div class="sticky top-0 z-10 border-b border-black/10 bg-background px-5 py-4" style="padding-top: max(env(safe-area-inset-top), 16px)">
       <div class="flex items-center justify-between">
-        <div class="text-sm font-medium text-bordeaux">Nouvelle photo</div>
-        <button class="text-sm text-bordeaux/70 underline" @click="close">Fermer</button>
+        <div class="text-sm font-medium text-primary">Nouvelle photo</div>
+        <button class="text-sm text-primary/70 underline" @click="close">Fermer</button>
       </div>
     </div>
 
@@ -339,7 +339,7 @@ onMounted(async () => {
       <div class="mt-4">
         <div class="flex items-center justify-between gap-3">
           <button
-            class="rounded-full bg-black/5 px-3 py-2 text-xs text-bordeaux ring-1 ring-black/10 hover:bg-black/10"
+            class="rounded-full bg-black/5 px-3 py-2 text-xs text-primary ring-1 ring-black/10 hover:bg-black/10"
             :disabled="busy"
             @click="showAdjust = !showAdjust"
           >
@@ -349,7 +349,7 @@ onMounted(async () => {
           <div v-if="session.target === 'menu'" class="flex flex-wrap gap-2">
             <button
               class="rounded-full px-3 py-2 text-xs ring-1 ring-black/10"
-              :class="chosenDate === todayISO() ? 'bg-emerald-500/20 text-emerald-200 ring-emerald-400/30' : 'bg-black/5 text-bordeaux hover:bg-black/10'"
+              :class="chosenDate === todayISO() ? 'bg-emerald-500/20 text-emerald-200 ring-emerald-400/30' : 'bg-black/5 text-primary hover:bg-black/10'"
               :disabled="busy"
               @click="chosenDate = todayISO()"
             >
@@ -357,7 +357,7 @@ onMounted(async () => {
             </button>
             <button
               class="rounded-full px-3 py-2 text-xs ring-1 ring-black/10"
-              :class="chosenDate === tomorrowISO() ? 'bg-emerald-500/20 text-emerald-200 ring-emerald-400/30' : 'bg-black/5 text-bordeaux hover:bg-black/10'"
+              :class="chosenDate === tomorrowISO() ? 'bg-emerald-500/20 text-emerald-200 ring-emerald-400/30' : 'bg-black/5 text-primary hover:bg-black/10'"
               :disabled="busy"
               @click="chosenDate = tomorrowISO()"
             >
@@ -370,7 +370,7 @@ onMounted(async () => {
           <div class="flex flex-wrap gap-2">
             <button
               class="rounded-full px-3 py-2 text-xs ring-1 ring-black/10"
-              :class="cropMode ? 'bg-emerald-500/20 text-emerald-200 ring-emerald-400/30' : 'bg-black/5 text-bordeaux hover:bg-black/10'"
+              :class="cropMode ? 'bg-emerald-500/20 text-emerald-200 ring-emerald-400/30' : 'bg-black/5 text-primary hover:bg-black/10'"
               :disabled="busy"
               @click="cropMode ? cancelCrop() : startCrop()"
             >
@@ -378,7 +378,7 @@ onMounted(async () => {
             </button>
             <button
               class="rounded-full px-3 py-2 text-xs ring-1 ring-black/10"
-              :class="ops.autobalance ? 'bg-emerald-500/20 text-emerald-200 ring-emerald-400/30' : 'bg-black/5 text-bordeaux hover:bg-black/10'"
+              :class="ops.autobalance ? 'bg-emerald-500/20 text-emerald-200 ring-emerald-400/30' : 'bg-black/5 text-primary hover:bg-black/10'"
               :disabled="busy"
               @click="toggle('autobalance')"
             >
@@ -386,7 +386,7 @@ onMounted(async () => {
             </button>
             <button
               class="rounded-full px-3 py-2 text-xs ring-1 ring-black/10"
-              :class="ops.autocrop ? 'bg-emerald-500/20 text-emerald-200 ring-emerald-400/30' : 'bg-black/5 text-bordeaux hover:bg-black/10'"
+              :class="ops.autocrop ? 'bg-emerald-500/20 text-emerald-200 ring-emerald-400/30' : 'bg-black/5 text-primary hover:bg-black/10'"
               :disabled="busy"
               @click="toggle('autocrop')"
             >
@@ -394,7 +394,7 @@ onMounted(async () => {
             </button>
             <button
               class="rounded-full px-3 py-2 text-xs ring-1 ring-black/10"
-              :class="ops.shadowremoval ? 'bg-emerald-500/20 text-emerald-200 ring-emerald-400/30' : 'bg-black/5 text-bordeaux hover:bg-black/10'"
+              :class="ops.shadowremoval ? 'bg-emerald-500/20 text-emerald-200 ring-emerald-400/30' : 'bg-black/5 text-primary hover:bg-black/10'"
               :disabled="busy"
               @click="toggle('shadowremoval')"
             >
@@ -402,7 +402,7 @@ onMounted(async () => {
             </button>
             <button
               class="rounded-full px-3 py-2 text-xs ring-1 ring-black/10"
-              :class="ops.sharpen ? 'bg-emerald-500/20 text-emerald-200 ring-emerald-400/30' : 'bg-black/5 text-bordeaux hover:bg-black/10'"
+              :class="ops.sharpen ? 'bg-emerald-500/20 text-emerald-200 ring-emerald-400/30' : 'bg-black/5 text-primary hover:bg-black/10'"
               :disabled="busy"
               @click="toggle('sharpen')"
             >
@@ -410,7 +410,7 @@ onMounted(async () => {
             </button>
             <button
               class="rounded-full px-3 py-2 text-xs ring-1 ring-black/10"
-              :class="(ops.autobalance || ops.autocrop || ops.shadowremoval || ops.sharpen) ? 'bg-black/10 text-bordeaux hover:bg-black/15' : 'bg-black/5 text-bordeaux/70'"
+              :class="(ops.autobalance || ops.autocrop || ops.shadowremoval || ops.sharpen) ? 'bg-black/10 text-primary hover:bg-black/15' : 'bg-black/5 text-primary/70'"
               :disabled="busy"
               @click="reset"
             >
@@ -432,7 +432,7 @@ onMounted(async () => {
           </div>
 
           <label v-if="session.target === 'menu'" class="grid gap-2">
-            <span class="text-sm text-bordeaux/70">Date</span>
+            <span class="text-sm text-primary/70">Date</span>
             <input
               v-model="chosenDate"
               type="date"
@@ -444,23 +444,23 @@ onMounted(async () => {
     </div>
 
     <div
-      class="fixed inset-x-0 bottom-0 z-10 border-t border-black/10 bg-beige/95 px-5 py-4 backdrop-blur"
+      class="fixed inset-x-0 bottom-0 z-10 border-t border-black/10 bg-background/95 px-5 py-4 backdrop-blur"
       style="padding-bottom: max(env(safe-area-inset-bottom), 16px)"
     >
       <div class="mx-auto grid max-w-3xl gap-3">
         <div class="grid grid-cols-2 gap-3">
-          <button class="w-full rounded-xl bg-black/10 px-4 py-3 text-sm text-bordeaux hover:bg-black/15" :disabled="busy" @click="close">
+          <button class="w-full rounded-xl bg-black/10 px-4 py-3 text-sm text-primary hover:bg-black/15" :disabled="busy" @click="close">
             Annuler
           </button>
           <button
-            class="w-full rounded-xl bg-bordeaux px-4 py-3 text-sm font-medium text-beige hover:bg-bordeaux/90"
+            class="w-full rounded-xl bg-primary px-4 py-3 text-sm font-medium text-background hover:bg-primary/90"
             :disabled="busy || cropMode || (session.target === 'menu' && chosenDate.length === 0)"
             @click="save"
           >
             Enregistrer
           </button>
         </div>
-        <div class="text-center text-xs text-bordeaux/70" v-if="cropMode">Finish crop (Apply/Cancel) to save</div>
+        <div class="text-center text-xs text-primary/70" v-if="cropMode">Finish crop (Apply/Cancel) to save</div>
       </div>
     </div>
   </main>

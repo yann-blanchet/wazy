@@ -63,30 +63,30 @@ onMounted(async () => {
       <div class="w-12" />
       <div class="text-2xl font-semibold">Statistiques</div>
       
-            <button class="text-sm text-bordeaux/70 underline" type="button" @click="goBack">Retour</button>
+            <button class="text-sm text-primary/70 underline" type="button" @click="goBack">Retour</button>
 
     </div>
 
     <section class="mt-6 rounded-2xl bg-black/5 p-5">
       
-      <p class="mt-1 text-sm text-bordeaux/70">Résumé de votre compte sur cet appareil.</p>
+      <p class="mt-1 text-sm text-primary/70">Résumé de votre compte sur cet appareil.</p>
 
       <div class="mt-4 grid grid-cols-2 gap-3">
         <div class="rounded-xl bg-black/10 p-3">
-          <div class="text-xs text-bordeaux/70">Uploads en attente</div>
-          <div class="mt-1 text-lg font-semibold text-bordeaux">{{ queued }}</div>
+          <div class="text-xs text-primary/70">Uploads en attente</div>
+          <div class="mt-1 text-lg font-semibold text-primary">{{ queued }}</div>
         </div>
         <div class="rounded-xl bg-black/10 p-3">
-          <div class="text-xs text-bordeaux/70">Menus</div>
-          <div class="mt-1 text-lg font-semibold text-bordeaux">{{ statsMenusCount }}</div>
+          <div class="text-xs text-primary/70">Menus</div>
+          <div class="mt-1 text-lg font-semibold text-primary">{{ statsMenusCount }}</div>
         </div>
         <div class="rounded-xl bg-black/10 p-3">
-          <div class="text-xs text-bordeaux/70">Photos resto</div>
-          <div class="mt-1 text-lg font-semibold text-bordeaux">{{ statsPhotosCount }}</div>
+          <div class="text-xs text-primary/70">Photos resto</div>
+          <div class="mt-1 text-lg font-semibold text-primary">{{ statsPhotosCount }}</div>
         </div>
         <div class="rounded-xl bg-black/10 p-3">
-          <div class="text-xs text-bordeaux/70">Cartes</div>
-          <div class="mt-1 text-lg font-semibold text-bordeaux">{{ statsPermanentMenusCount }}</div>
+          <div class="text-xs text-primary/70">Cartes</div>
+          <div class="mt-1 text-lg font-semibold text-primary">{{ statsPermanentMenusCount }}</div>
         </div>
       </div>
     </section>

@@ -104,20 +104,20 @@ onUnmounted(() => {
 <template>
   <main class="mx-auto max-w-xl p-4">
     <div class="rounded-3xl bg-black/5 p-5">
-      <div class="text-sm text-bordeaux/70">Restaurant</div>
+      <div class="text-sm text-primary/70">Restaurant</div>
       <h1 class="mt-1 text-2xl font-semibold">{{ data?.restaurant.name || id }}</h1>
 
-      <div v-if="error" class="mt-4 rounded-xl bg-black/5 p-4 text-sm text-bordeaux/70">
+      <div v-if="error" class="mt-4 rounded-xl bg-black/5 p-4 text-sm text-primary/70">
         {{ error }}
       </div>
 
       <div class="mt-4 aspect-[4/5] overflow-hidden rounded-2xl bg-black/10">
         <img v-if="todayImgUrl" class="h-full w-full object-cover" :src="todayImgUrl" alt="Today's menu" />
-        <div v-else class="flex h-full items-center justify-center text-sm text-bordeaux/70">No menu yet</div>
+        <div v-else class="flex h-full items-center justify-center text-sm text-primary/70">No menu yet</div>
       </div>
 
       <div v-if="permanentMenus.length > 0" class="mt-6">
-        <div class="text-sm font-medium text-bordeaux">Permanent menu</div>
+        <div class="text-sm font-medium text-primary">Permanent menu</div>
         <div class="mt-3 grid grid-cols-2 gap-2">
           <a
             v-for="m in permanentMenus"
@@ -132,7 +132,7 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div class="mt-5 grid gap-1 text-sm text-bordeaux/70">
+      <div class="mt-5 grid gap-1 text-sm text-primary/70">
         <div>Name: {{ data?.restaurant.name || '—' }}</div>
         <div>Address: {{ data?.restaurant.address || '—' }}</div>
         <div>City: {{ data?.restaurant.city || '—' }}</div>
@@ -141,7 +141,7 @@ onUnmounted(() => {
       </div>
 
       <div class="mt-6">
-        <div class="text-sm font-medium text-bordeaux">Last menus</div>
+        <div class="text-sm font-medium text-primary">Last menus</div>
         <div class="mt-3 grid grid-cols-3 gap-2">
           <a
             v-for="d in menuDates"

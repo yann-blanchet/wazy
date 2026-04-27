@@ -55,13 +55,13 @@ onMounted(async () => {
     <div class="flex items-center justify-between">
        <div class="w-12" />
      <div class="text-2xl font-semibold">Lien public</div>
-      <button class="text-sm text-bordeaux/70 underline" type="button" @click="goBack">Retour</button>
+      <button class="text-sm text-primary/70 underline" type="button" @click="goBack">Retour</button>
     </div>
 
     <section class="mt-6 rounded-2xl bg-black/5 p-5">
-      <p class="mt-1 text-sm text-bordeaux/70">Lien public à partager avec vos clients.</p>
+      <p class="mt-1 text-sm text-primary/70">Lien public à partager avec vos clients.</p>
 
-      <div v-if="publicPageUrl" class="mt-4 break-all rounded-xl bg-black/10 p-3 font-mono text-xs text-bordeaux/70">
+      <div v-if="publicPageUrl" class="mt-4 break-all rounded-xl bg-black/10 p-3 font-mono text-xs text-primary/70">
         {{ publicPageUrl }}
       </div>
 

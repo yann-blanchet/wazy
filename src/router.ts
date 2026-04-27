@@ -17,8 +17,8 @@ import StatsPage from './views/StatsPage.vue'
 import LogoutPage from './views/LogoutPage.vue'
 
 export const routes: RouteRecordRaw[] = [
-  { path: '/', name: 'home', component: HomePage },
-  { path: '/login', name: 'login', component: LoginPage },
+  { path: '/', name: 'login', component: LoginPage },
+  { path: '/login', redirect: '/' },
   { path: '/dashboard', name: 'dashboard', component: DashboardPage },
   { path: '/infos', name: 'infos', component: InfosPage },
   { path: '/carte', name: 'carte', component: CarteRestoPage },

@@ -2,15 +2,26 @@
 import { computed, ref, watchEffect } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { apiFetch } from '../lib/api'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 
-const mode = computed(() => (route.query.mode === 'create' ? 'create' : 'login'))
+const mode = computed(() => {
+  const m = route.query.mode
+  if (m === 'create' || m === 'recover') return m
+  return 'login'
+})
 const key = ref('')
 const desiredId = ref('')
 const createError = ref('')
+
+const recoveryRestaurantId = ref('')
+const recoveryEmail = ref('')
+const recoveryToken = ref('')
+const recoveryStatus = ref('')
+const recoveredMasterKey = ref('')
 
 const autoLoginTried = ref(false)
 
@@ -62,74 +73,190 @@ async function login() {
   await auth.loginWithKey(key.value)
   await router.push('/dashboard')
 }
+
+async function requestRecoveryToken() {
+  try {
+    recoveryStatus.value = 'Envoi…'
+    recoveredMasterKey.value = ''
+    await apiFetch<{ ok: true }>('/api/account/recovery/request', {
+      method: 'POST',
+      body: { id: recoveryRestaurantId.value, adminEmail: recoveryEmail.value }
+    })
+    recoveryStatus.value = 'Email envoyé (si l’adresse correspond).'
+  } catch (e) {
+    recoveryStatus.value = e instanceof Error ? e.message : 'request_error'
+  }
+}
+
+async function confirmRecoveryToken() {
+  try {
+    recoveryStatus.value = 'Validation…'
+    const res = await apiFetch<{ masterKey: string }>('/api/account/recovery/confirm', {
+      method: 'POST',
+      body: { id: recoveryRestaurantId.value, token: recoveryToken.value }
+    })
+    recoveredMasterKey.value = res.masterKey
+    recoveryStatus.value = 'Nouvelle clé maître générée.'
+  } catch (e) {
+    recoveredMasterKey.value = ''
+    recoveryStatus.value = e instanceof Error ? e.message : 'confirm_error'
+  }
+}
+
+async function copyRecoveredMasterKey() {
+  if (!recoveredMasterKey.value) return
+  await navigator.clipboard.writeText(recoveredMasterKey.value)
+}
+
+function setMode(m: 'login' | 'create' | 'recover') {
+  router.push({ path: '/', query: m === 'login' ? {} : { mode: m } })
+}
 </script>
 
 <template>
   <main class="mx-auto max-w-lg p-6">
-    <h1 class="text-2xl font-semibold">
-      {{ mode === 'create' ? 'Créer un compte' : 'Connexion' }}
-    </h1>
+    <h1 class="text-3xl font-semibold tracking-tight">Wazy</h1>
+    <p class="mt-2 text-bordeaux/70">Publiez le menu du jour avec une seule photo.</p>
 
-    <div v-if="mode === 'create'" class="mt-6 grid gap-3">
-      <label class="grid gap-2">
-        <span class="text-sm text-bordeaux/70">Choisissez votre identifiant public</span>
-        <input
-          v-model="desiredId"
-          class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 font-mono text-base text-bordeaux outline-none focus:border-bordeaux/60"
-          placeholder="e.g. le-bistrot"
-          autocomplete="off"
-          autocapitalize="off"
-          spellcheck="false"
-        />
-      </label>
 
-      <button
-        class="rounded-xl bg-bordeaux px-4 py-3 font-medium text-beige hover:bg-bordeaux/90"
-        @click="createAccount"
-      >
-        Créer → obtenir la clé maître
-      </button>
+    <div class="mt-10">
+      <h2 class="text-2xl font-semibold">
+        {{ mode === 'create' ? 'Créer un compte' : mode === 'recover' ? 'Clé oubliée' : 'Connexion' }}
+      </h2>
 
-      <div v-if="createError" class="rounded-xl bg-black/10 p-4 text-sm text-bordeaux/70">
-        {{ createError }}
-      </div>
+      <div v-if="mode === 'create'" class="mt-6 grid gap-3">
+        <label class="grid gap-2">
+          <span class="text-sm text-bordeaux/70">Choisissez votre identifiant public</span>
+          <input
+            v-model="desiredId"
+            class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 font-mono text-base text-bordeaux outline-none focus:border-bordeaux/60"
+            placeholder="e.g. le-bistrot"
+            autocomplete="off"
+            autocapitalize="off"
+            spellcheck="false"
+          />
+        </label>
 
-      <div v-if="masterKeyShown" class="rounded-xl bg-black/10 p-4">
-        <div class="text-sm text-bordeaux/70">Clé maître (affichée une seule fois) :</div>
-        <div class="mt-2 break-all font-mono text-sm text-bordeaux">{{ masterKeyShown }}</div>
         <button
-          class="mt-3 rounded-lg bg-black/10 px-3 py-2 text-sm hover:bg-black/15"
-          @click="useMasterKeyToLogin"
+          class="rounded-xl bg-bordeaux px-4 py-3 font-medium text-beige hover:bg-bordeaux/90"
+          @click="createAccount"
         >
-          Se connecter avec cette clé
+          Créer → obtenir la clé maître
         </button>
+
+        <div v-if="createError" class="rounded-xl bg-black/10 p-4 text-sm text-bordeaux/70">
+          {{ createError }}
+        </div>
+
+        <div v-if="masterKeyShown" class="rounded-xl bg-black/10 p-4">
+          <div class="text-sm text-bordeaux/70">Clé maître (affichée une seule fois) :</div>
+          <div class="mt-2 break-all font-mono text-sm text-bordeaux">{{ masterKeyShown }}</div>
+          <button
+            class="mt-3 rounded-lg bg-black/10 px-3 py-2 text-sm hover:bg-black/15"
+            @click="useMasterKeyToLogin"
+          >
+            Se connecter avec cette clé
+          </button>
+        </div>
       </div>
+
+      <div v-else-if="mode === 'recover'" class="mt-6 grid gap-3">
+        <label class="grid gap-2">
+          <span class="text-sm text-bordeaux/70">Identifiant du restaurant</span>
+          <input
+            v-model="recoveryRestaurantId"
+            class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 font-mono text-base text-bordeaux outline-none focus:border-bordeaux/60"
+            placeholder="ex: le-bistrot"
+            autocomplete="off"
+            autocapitalize="off"
+            spellcheck="false"
+          />
+        </label>
+
+        <label class="grid gap-2">
+          <span class="text-sm text-bordeaux/70">Email admin</span>
+          <input
+            v-model="recoveryEmail"
+            type="email"
+            class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 text-base text-bordeaux outline-none focus:border-bordeaux/60"
+            placeholder="admin@restaurant.com"
+            autocomplete="email"
+          />
+        </label>
+
+        <button class="rounded-xl bg-black/10 px-4 py-3 hover:bg-black/15" type="button" @click="requestRecoveryToken">
+          Envoyer le code
+        </button>
+
+        <label class="grid gap-2">
+          <span class="text-sm text-bordeaux/70">Code reçu par email</span>
+          <input
+            v-model="recoveryToken"
+            class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 font-mono text-base text-bordeaux outline-none focus:border-bordeaux/60"
+            placeholder="Code"
+            autocomplete="one-time-code"
+          />
+        </label>
+
+        <button
+          class="rounded-xl bg-bordeaux px-4 py-3 font-medium text-beige hover:bg-bordeaux/90"
+          type="button"
+          :disabled="recoveryRestaurantId.trim().length === 0 || recoveryToken.trim().length === 0"
+          @click="confirmRecoveryToken"
+        >
+          Confirmer et régénérer la clé maître
+        </button>
+
+        <div v-if="recoveredMasterKey" class="rounded-xl bg-black/10 p-4">
+          <div class="text-sm text-bordeaux/70">Nouvelle clé maître :</div>
+          <div class="mt-2 break-all font-mono text-sm text-bordeaux">{{ recoveredMasterKey }}</div>
+          <button class="mt-3 rounded-lg bg-black/10 px-3 py-2 text-sm hover:bg-black/15" type="button" @click="copyRecoveredMasterKey">
+            Copier
+          </button>
+        </div>
+
+        <div v-if="recoveryStatus" class="rounded-xl bg-black/10 p-4 text-sm text-bordeaux/70">
+          {{ recoveryStatus }}
+        </div>
+
+        <button class="text-left text-sm text-bordeaux/70 underline" type="button" @click="setMode('login')">Retour à la connexion</button>
+      </div>
+
+      <div v-else class="mt-6 grid gap-3">
+        <label class="grid gap-2">
+          
+          <input
+            v-model="key"
+            class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 font-mono text-base text-bordeaux outline-none focus:border-bordeaux/60"
+            placeholder="code"
+            autocomplete="off"
+            autocapitalize="off"
+            spellcheck="false"
+          />
+        </label>
+
+        <button
+          class="rounded-xl bg-black/10 px-4 py-3 hover:bg-black/15"
+          :disabled="key.length === 0"
+          @click="login"
+        >
+          Connexion
+        </button>
+
+        <button class="text-left text-sm text-bordeaux/70 underline" type="button" @click="setMode('recover')">Clé oubliée ?</button>
+
+        <div class="mt-3 rounded-xl bg-black/5 p-4">
+          <div class="text-sm text-bordeaux/70">Pas encore de compte ?</div>
+          <button
+            class="mt-3 w-full rounded-xl bg-bordeaux px-4 py-3 text-left font-medium text-beige hover:bg-bordeaux/90"
+            type="button"
+            @click="setMode('create')"
+          >
+            Créer un compte
+          </button>
+        </div>
+      </div>
+
     </div>
-
-    <div v-else class="mt-6 grid gap-3">
-      <label class="grid gap-2">
-        <span class="text-sm text-bordeaux/70">Clé</span>
-        <input
-          v-model="key"
-          class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 font-mono text-base text-bordeaux outline-none focus:border-bordeaux/60"
-          placeholder="{id} or {id}-master"
-          autocomplete="off"
-          autocapitalize="off"
-          spellcheck="false"
-        />
-      </label>
-
-      <button
-        class="rounded-xl bg-black/10 px-4 py-3 hover:bg-black/15"
-        :disabled="key.length === 0"
-        @click="login"
-      >
-        Connexion
-      </button>
-    </div>
-
-    <button class="mt-8 text-sm text-bordeaux/70 underline" @click="router.push('/')">
-      Retour
-    </button>
   </main>
 </template>

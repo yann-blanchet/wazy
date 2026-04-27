@@ -1,5 +1,7 @@
 export interface Env {
   APP_ORIGIN: string
+  RESEND_API_KEY: string
+  RESEND_FROM: string
   PRIVATE_MENUS: R2Bucket
   RESTAURANTS: KVNamespace
 }
@@ -49,6 +51,7 @@ type RestaurantRecord = {
   id: string
   workerKey: string
   masterKey: string
+  adminEmail?: string
   public: RestaurantPublic
   menus: MenuItem[]
   permanentMenu?: PermanentMenu
@@ -138,6 +141,85 @@ function randomId(len = 10) {
 
 function randomKey(prefix: 'msr' | 'wkr') {
   return `${prefix}_${randomId(26)}`
+}
+
+function normalizeEmail(v: string) {
+  return v.trim().toLowerCase()
+}
+
+function isValidEmail(v: string) {
+  if (v.length < 3 || v.length > 254) return false
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)
+}
+
+async function sha256Hex(input: string) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input))
+  const bytes = new Uint8Array(buf)
+  let out = ''
+  for (const b of bytes) out += b.toString(16).padStart(2, '0')
+  return out
+}
+
+type RecoveryTokenRecord = {
+  id: string
+  adminEmail: string
+  createdAt: number
+}
+
+async function sendRecoveryEmail(
+  env: Env,
+  opts: {
+    to: string
+    restaurantId: string
+    token: string
+  }
+) {
+  const fromEmail = env.RESEND_FROM
+  if (!fromEmail) throw new Error('mail_from_missing')
+
+  const apiKey = env.RESEND_API_KEY
+  if (!apiKey) throw new Error('mail_api_key_missing')
+
+  const origin = env.APP_ORIGIN.replace(/\/+$/, '')
+  const subject = `Récupération de votre clé maître (${opts.restaurantId})`
+  const text =
+    `Bonjour,\n\n` +
+    `Voici votre code de récupération : ${opts.token}\n\n` +
+    `Restaurant : ${opts.restaurantId}\n\n` +
+    `Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.\n`
+
+  const html = `
+  <div style="font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; line-height: 1.4">
+    <h2 style="margin: 0 0 12px">Récupération de clé maître</h2>
+    <p style="margin: 0 0 12px">Restaurant : <b>${opts.restaurantId}</b></p>
+    <p style="margin: 0 0 8px">Code de récupération :</p>
+    <div style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 18px; padding: 12px; background: #f3f4f6; border-radius: 12px; display: inline-block">${opts.token}</div>
+    <p style="margin: 16px 0 0; color: #6b7280; font-size: 12px">Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.</p>
+    <p style="margin: 12px 0 0; color: #6b7280; font-size: 12px">Origine : ${origin}</p>
+  </div>
+  `.trim()
+
+  const payload = {
+    from: fromEmail,
+    to: [opts.to],
+    subject,
+    text,
+    html
+  }
+
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      authorization: `Bearer ${apiKey}`
+    },
+    body: JSON.stringify(payload)
+  })
+
+  if (!res.ok) {
+    const t = await res.text().catch(() => '')
+    throw new Error(`mail_send_failed_${res.status}${t ? `:${t}` : ''}`)
+  }
 }
 
 function isValidRestaurantId(id: string) {
@@ -244,6 +326,7 @@ async function handle(req: Request, env: Env): Promise<Response> {
       id,
       workerKey,
       masterKey,
+      adminEmail: undefined,
       public: {
         id,
         name: 'New restaurant',
@@ -264,6 +347,105 @@ async function handle(req: Request, env: Env): Promise<Response> {
     await putKeyIndex(env, workerKey, { id, role: 'worker' })
 
     return json({ id, workerKey, masterKey })
+  }
+
+  if (url.pathname === '/api/account/admin-email' && req.method === 'GET') {
+    const key = parseAuthKeyFromHeader(req)
+    if (!key) return json({ error: 'missing_auth' }, { status: 401 })
+
+    const auth = await authRestaurant(env, key)
+    if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
+    if (auth.role !== 'master') return json({ error: 'forbidden' }, { status: 403 })
+
+    return json({ adminEmail: auth.rec.adminEmail ?? '' })
+  }
+
+  if (url.pathname === '/api/account/admin-email' && req.method === 'PUT') {
+    const key = parseAuthKeyFromHeader(req)
+    if (!key) return json({ error: 'missing_auth' }, { status: 401 })
+
+    const auth = await authRestaurant(env, key)
+    if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
+    if (auth.role !== 'master') return json({ error: 'forbidden' }, { status: 403 })
+
+    const body = await readJsonOptional<{ adminEmail?: string | null }>(req)
+    const nextRaw = typeof body?.adminEmail === 'string' ? body.adminEmail : ''
+    const next = normalizeEmail(nextRaw)
+    if (next.length > 0 && !isValidEmail(next)) return json({ error: 'invalid_email' }, { status: 400 })
+
+    auth.rec.adminEmail = next.length > 0 ? next : undefined
+    await putRestaurant(env, auth.rec)
+    return json({ adminEmail: auth.rec.adminEmail ?? '' })
+  }
+
+  if (url.pathname === '/api/account/recovery/request' && req.method === 'POST') {
+    const body = await readJsonOptional<{ id?: string; adminEmail?: string }>(req)
+    const id = typeof body?.id === 'string' ? body.id.trim() : ''
+    const email = typeof body?.adminEmail === 'string' ? normalizeEmail(body.adminEmail) : ''
+    if (!id) return json({ error: 'missing_id' }, { status: 400 })
+    if (!email) return json({ error: 'missing_email' }, { status: 400 })
+    if (!isValidEmail(email)) return json({ error: 'invalid_email' }, { status: 400 })
+
+    const rec = await getRestaurant(env, id)
+    if (!rec) return json({ ok: true })
+
+    const stored = normalizeEmail(rec.adminEmail ?? '')
+    if (!stored || stored !== email) return json({ ok: true })
+
+    const token = randomId(32)
+    const tokenHash = await sha256Hex(`recovery:${token}`)
+    const tokenRec: RecoveryTokenRecord = {
+      id: rec.id,
+      adminEmail: stored,
+      createdAt: Date.now()
+    }
+
+    await env.RESTAURANTS.put(`recovery:${tokenHash}`, JSON.stringify(tokenRec), {
+      expirationTtl: 60 * 15
+    })
+
+    await sendRecoveryEmail(env, { to: stored, restaurantId: rec.id, token })
+
+    return json({ ok: true })
+  }
+
+  if (url.pathname === '/api/account/recovery/confirm' && req.method === 'POST') {
+    const body = await readJsonOptional<{ id?: string; token?: string }>(req)
+    const id = typeof body?.id === 'string' ? body.id.trim() : ''
+    const token = typeof body?.token === 'string' ? body.token.trim() : ''
+    if (!id) return json({ error: 'missing_id' }, { status: 400 })
+    if (!token) return json({ error: 'missing_token' }, { status: 400 })
+
+    const tokenHash = await sha256Hex(`recovery:${token}`)
+    const raw = await env.RESTAURANTS.get(`recovery:${tokenHash}`)
+    if (!raw) return json({ error: 'invalid_token' }, { status: 400 })
+
+    const tokenRec = JSON.parse(raw) as RecoveryTokenRecord
+    if (!tokenRec?.id || tokenRec.id !== id) return json({ error: 'invalid_token' }, { status: 400 })
+
+    const rec = await getRestaurant(env, id)
+    if (!rec) return json({ error: 'not_found' }, { status: 404 })
+
+    const oldMasterKey = rec.masterKey
+    let nextMasterKey: string | null = null
+    for (let i = 0; i < 10; i++) {
+      const candidate = randomKey('msr')
+      const existing = await getKeyIndex(env, candidate)
+      if (!existing) {
+        nextMasterKey = candidate
+        break
+      }
+    }
+    if (!nextMasterKey) return json({ error: 'key_generation_failed' }, { status: 500 })
+
+    rec.masterKey = nextMasterKey
+    await putRestaurant(env, rec)
+    await deleteKeyIndex(env, oldMasterKey)
+    await putKeyIndex(env, nextMasterKey, { id: rec.id, role: 'master' })
+
+    await env.RESTAURANTS.delete(`recovery:${tokenHash}`)
+
+    return json({ masterKey: nextMasterKey })
   }
 
   if (url.pathname === '/api/auth' && req.method === 'POST') {

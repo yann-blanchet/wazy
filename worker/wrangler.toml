@@ -4,11 +4,15 @@ compatibility_date = "2026-04-16"
 
 [vars]
 APP_ORIGIN = "https://www.wazymenu.fr"
+RESEND_FROM = "noreply@wazymenu.fr"
+RESEND_API_KEY = "re_A96dUydM_7uykCALQyTPJU13FQxcb8bH5"
 
 [env.dev]
 
 [env.dev.vars]
 APP_ORIGIN = "http://localhost:5173"
+RESEND_FROM = "noreply@wazymenu.fr"
+RESEND_API_KEY = "re_A96dUydM_7uykCALQyTPJU13FQxcb8bH5"
 
 [[r2_buckets]]
 binding = "PRIVATE_MENUS"

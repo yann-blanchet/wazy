@@ -4,8 +4,8 @@ export default {
   theme: {
     extend: {
       colors: {
-        beige: '#F5E9D5',
-        bordeaux: '#6B1020'
+        beige: '#F8F9FA',
+        bordeaux: '#2D6A4F'
       }
     }
   },

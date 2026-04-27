@@ -6,7 +6,7 @@ const router = useRouter()
 
 <template>
   <main class="mx-auto max-w-lg p-6">
-    <h1 class="text-3xl font-semibold tracking-tight">Wazy</h1>
+    <h1 class="text-3xl font-semibold tracking-tight">titre menu</h1>
     <p class="mt-2 text-bordeaux/70">
       Publiez le menu du jour avec une seule photo.
     </p>

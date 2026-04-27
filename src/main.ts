@@ -25,6 +25,7 @@ router.beforeEach((to) => {
 
   if (
     to.path === '/dashboard' ||
+    to.path === '/recup-admin' ||
     to.path === '/infos' ||
     to.path === '/carte' ||
     to.path === '/galerie' ||

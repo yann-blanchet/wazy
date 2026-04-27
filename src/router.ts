@@ -15,11 +15,13 @@ import LienPublicPage from './views/LienPublicPage.vue'
 import EquipePage from './views/EquipePage.vue'
 import StatsPage from './views/StatsPage.vue'
 import LogoutPage from './views/LogoutPage.vue'
+import RecupAdminPage from './views/RecupAdminPage.vue'
 
 export const routes: RouteRecordRaw[] = [
   { path: '/', name: 'login', component: LoginPage },
   { path: '/login', redirect: '/' },
   { path: '/dashboard', name: 'dashboard', component: DashboardPage },
+  { path: '/recup-admin', name: 'recup-admin', component: RecupAdminPage },
   { path: '/infos', name: 'infos', component: InfosPage },
   { path: '/carte', name: 'carte', component: CarteRestoPage },
   { path: '/galerie', name: 'galerie', component: GaleriePage },

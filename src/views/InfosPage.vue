@@ -57,6 +57,7 @@ async function saveProfile() {
       }
     })
     profileStatus.value = 'Enregistré.'
+    await goBack()
   } catch (e) {
     profileStatus.value = e instanceof Error ? e.message : 'save_error'
   }
@@ -88,7 +89,7 @@ onMounted(async () => {
       <button class="text-sm text-secondary underline" type="button" @click="goBack">Retour</button>
     </div>
 
-    <section class="mt-6 rounded-2xl bg-black/5 p-5">
+    <section class="mt-6 rounded-2xl p-5">
  
       <div class="mt-4 grid gap-3">
         <label class="grid gap-2">
@@ -138,14 +139,25 @@ onMounted(async () => {
           />
         </label>
 
-        <button class="rounded-xl bg-black/10 px-4 py-3 hover:bg-black/15" :disabled="!auth.isMaster" @click="saveProfile">
-          Enregistrer
-        </button>
+        
 
         <div v-if="profileStatus" class="text-sm text-primary/70">{{ profileStatus }}</div>
       </div>
     </section>
-
+<div
+      class="fixed inset-x-0 bottom-0 z-[80] border-t border-black/10 px-4 py-3 backdrop-blur"
+      style="padding-bottom: max(env(safe-area-inset-bottom), 12px)"
+    >
+      <div class="mx-auto max-w-lg">
+        <button
+          class="w-full rounded-xl bg-cta px-4 py-3 text-sm font-semibold text-background shadow-lg shadow-black/20 hover:bg-primary/90"
+          type="button"
+          :disabled="!auth.isMaster" @click="saveProfile"
+        >
+          Enregistrer
+        </button>
+      </div>
+    </div>
     <div v-if="cuisineSheetOpen" class="fixed inset-0 z-[80]">
       <div class="absolute inset-0 bg-black/60" @click="cuisineSheetOpen = false" />
       <div

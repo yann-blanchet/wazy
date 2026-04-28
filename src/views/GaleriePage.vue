@@ -224,7 +224,7 @@ onMounted(async () => {
     >
       <div class="mx-auto max-w-lg">
         <button
-          class="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-background shadow-lg shadow-black/20 hover:bg-primary/90"
+          class="w-full rounded-xl bg-cta px-4 py-3 text-sm font-semibold text-background shadow-lg shadow-black/20 hover:bg-primary/90"
           type="button"
           @click="triggerPhotoPick"
         >

@@ -193,10 +193,47 @@ function formatDayMonth(iso: string) {
   return `${m[3]}/${m[2]}`
 }
 
+function tomorrowISO() {
+  const d = new Date()
+  d.setDate(d.getDate() + 1)
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
+
+function nextWeekdayISO(day: number) {
+  const d = new Date()
+  const delta = (day - d.getDay() + 7) % 7
+  d.setDate(d.getDate() + delta)
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
+
+function saturdayISO() {
+  return nextWeekdayISO(6)
+}
+
+function sundayISO() {
+  return nextWeekdayISO(0)
+}
+
 const selectedMenu = computed(() => menus.value.find((m) => m.date === selectedDate.value) ?? null)
 const lastUpdatedText = computed(() => (selectedMenu.value ? formatRelativeUpdatedAt(selectedMenu.value.createdAt) : '—'))
 const lastUpdatedEventText = computed(() => (eventItem.value ? formatRelativeUpdatedAt(eventItem.value.createdAt) : '—'))
 const todayDateText = computed(() => formatDayMonth(todayISO()))
+
+const eventDateText = computed(() => formatDayMonth(eventDate.value))
+const eventQuickLabel = computed(() => {
+  if (!eventDate.value) return ''
+  if (eventDate.value === todayISO()) return 'Ce soir'
+  if (eventDate.value === tomorrowISO()) return 'Demain'
+  if (eventDate.value === saturdayISO()) return 'Samedi'
+  if (eventDate.value === sundayISO()) return 'Dimanche'
+  return ''
+})
 
 const activeTabTitle = computed(() => {
   if (activeTab.value === 'menu') return menuMode.value === 'event' ? 'Événement' : 'Menu du jour'
@@ -338,11 +375,12 @@ async function onTakePhotoChange(e: Event) {
               </div>
 
               <div class="absolute inset-x-0 top-0 flex items-center justify-between gap-3 p-3">
-                <input
-                  v-model="eventDate"
-                  class="rounded-full bg-background/90 px-3 py-1 text-xs font-semibold text-primary outline-none ring-1 ring-black/10 backdrop-blur"
-                  type="date"
-                />
+                <div class="flex flex-col items-start gap-1">
+                  <div v-if="eventQuickLabel" class="rounded-full bg-background/90 px-3 py-1 text-xs font-semibold text-primary ring-1 ring-black/10 backdrop-blur">
+                    {{ eventQuickLabel }} <span class="text-[11px] font-medium text-primary/70">{{ eventDateText }}</span>
+                  </div>
+                  
+                </div>
                 <div class="rounded-full bg-background/90 px-3 py-1 text-xs font-semibold text-secondary/90 ring-1 ring-black/10 backdrop-blur">
                   {{ lastUpdatedEventText }}
                 </div>

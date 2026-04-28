@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useEnhanceSessionStore } from '../stores/enhanceSession'
@@ -49,6 +49,43 @@ function tomorrowISO() {
   d.setDate(d.getDate() + 1)
   return formatISODate(d)
 }
+
+function nextWeekdayISO(day: number) {
+  const d = new Date()
+  const delta = (day - d.getDay() + 7) % 7
+  d.setDate(d.getDate() + delta)
+  return formatISODate(d)
+}
+
+function saturdayISO() {
+  return nextWeekdayISO(6)
+}
+
+function sundayISO() {
+  return nextWeekdayISO(0)
+}
+
+function formatShortFR(iso: string) {
+  const [yyyy, mm, dd] = iso.split('-')
+  if (!yyyy || !mm || !dd) return iso
+  return `${dd}/${mm}`
+}
+
+const eventDateLabel = computed(() => {
+  if (session.target !== 'event') return null
+  if (!chosenDate.value) return null
+  if (chosenDate.value === todayISO()) return 'Ce soir'
+  if (chosenDate.value === tomorrowISO()) return 'Demain'
+  if (chosenDate.value === saturdayISO()) return 'Samedi'
+  if (chosenDate.value === sundayISO()) return 'Dimanche'
+  return 'Date'
+})
+
+const eventDateDisplay = computed(() => {
+  if (session.target !== 'event') return null
+  if (!chosenDate.value) return null
+  return formatShortFR(chosenDate.value)
+})
 
 function setEnhancedPreview(blob: Blob) {
   if (enhancedUrl.value) URL.revokeObjectURL(enhancedUrl.value)
@@ -323,7 +360,12 @@ onMounted(async () => {
     return
   }
 
-  chosenDate.value = session.target === 'menu' || session.target === 'event' ? (session.defaultDate || todayISO()) : ''
+  chosenDate.value =
+    session.target === 'menu'
+      ? todayISO()
+      : session.target === 'event'
+        ? (session.defaultDate || todayISO())
+        : ''
   await recompute()
 })
 </script>
@@ -339,6 +381,12 @@ onMounted(async () => {
 
     <div class="mx-auto max-w-3xl px-5 pb-28 pt-4" style="padding-bottom: max(env(safe-area-inset-bottom), 112px)">
       <div class="relative overflow-hidden rounded-2xl bg-black/10">
+        <div v-if="session.target === 'event' && eventDateLabel && eventDateDisplay" class="absolute inset-x-0 top-0 z-10 p-3">
+          <div class="inline-flex items-baseline gap-2 rounded-xl bg-black/35 px-3 py-2 text-white backdrop-blur">
+            <div class="text-sm font-medium">{{ eventDateLabel }}</div>
+            <div class="text-xs text-white/80">{{ eventDateDisplay }}</div>
+          </div>
+        </div>
         <div class="aspect-[4/5] overflow-hidden">
           <img
             v-if="enhancedUrl"
@@ -380,22 +428,42 @@ onMounted(async () => {
             {{ showAdjust ? 'Hide' : 'Adjust' }}
           </button>
 
-          <div v-if="session.target === 'menu' || session.target === 'event'" class="flex flex-wrap gap-2">
+          <div v-if="session.target === 'event'" class="flex flex-wrap justify-end gap-2">
             <button
               class="rounded-full px-3 py-2 text-xs ring-1 ring-black/10"
               :class="chosenDate === todayISO() ? 'bg-emerald-500/20 text-emerald-200 ring-emerald-400/30' : 'bg-black/5 text-primary hover:bg-black/10'"
               type="button"
+              :disabled="busy"
               @click="chosenDate = todayISO()"
             >
-              Today
+              Ce soir
             </button>
             <button
               class="rounded-full px-3 py-2 text-xs ring-1 ring-black/10"
               :class="chosenDate === tomorrowISO() ? 'bg-emerald-500/20 text-emerald-200 ring-emerald-400/30' : 'bg-black/5 text-primary hover:bg-black/10'"
+              type="button"
               :disabled="busy"
               @click="chosenDate = tomorrowISO()"
             >
               Demain
+            </button>
+            <button
+              class="rounded-full px-3 py-2 text-xs ring-1 ring-black/10"
+              :class="chosenDate === saturdayISO() ? 'bg-emerald-500/20 text-emerald-200 ring-emerald-400/30' : 'bg-black/5 text-primary hover:bg-black/10'"
+              type="button"
+              :disabled="busy"
+              @click="chosenDate = saturdayISO()"
+            >
+              Samedi
+            </button>
+            <button
+              class="rounded-full px-3 py-2 text-xs ring-1 ring-black/10"
+              :class="chosenDate === sundayISO() ? 'bg-emerald-500/20 text-emerald-200 ring-emerald-400/30' : 'bg-black/5 text-primary hover:bg-black/10'"
+              type="button"
+              :disabled="busy"
+              @click="chosenDate = sundayISO()"
+            >
+              Dimanche
             </button>
           </div>
         </div>
@@ -464,15 +532,6 @@ onMounted(async () => {
               Apply crop
             </button>
           </div>
-
-          <label v-if="session.target === 'menu' || session.target === 'event'" class="grid gap-2">
-            <span class="text-sm text-primary/70">Date</span>
-            <input
-              v-model="chosenDate"
-              class="rounded-xl bg-black/5 px-3 py-3 text-sm text-primary outline-none ring-1 ring-black/10 focus:ring-2 focus:ring-primary"
-              type="date"
-            />
-          </label>
         </div>
       </div>
     </div>

@@ -6,32 +6,28 @@ import { useEnhanceSessionStore } from '../stores/enhanceSession'
 import { renderEnhanced, type EnhanceOps } from '../lib/enhance'
 import { apiBaseUrl, apiFetch } from '../lib/api'
 import { enqueueUpload, flushUploadQueue, newUploadId } from '../lib/uploadQueue'
+import { Cropper } from 'vue-advanced-cropper'
+import 'vue-advanced-cropper/dist/style.css'
 
 const router = useRouter()
 const auth = useAuthStore()
 const session = useEnhanceSessionStore()
 
 const chosenDate = ref<string>('')
-const showAdjust = ref<boolean>(false)
 
 const busy = ref<boolean>(false)
 const enhancedUrl = ref<string>('')
 const enhancedBlob = ref<Blob | null>(null)
 
-const imgEl = ref<HTMLImageElement | null>(null)
 const cropMode = ref<boolean>(false)
-const cropDragging = ref<boolean>(false)
-const cropRect = ref<{ x: number; y: number; w: number; h: number } | null>(null)
-const cropStart = ref<{ x: number; y: number } | null>(null)
+const cropperRef = ref<InstanceType<typeof Cropper> | null>(null)
 
-const cropAspect = 4 / 5
-
-const ops = ref<EnhanceOps>({
-  autobalance: true,
-  autocrop: true,
-  shadowremoval: true,
-  sharpen: true
-})
+const ops: EnhanceOps = {
+  autobalance: false,
+  autocrop: false,
+  shadowremoval: false,
+  sharpen: false
+}
 
 function formatISODate(d: Date) {
   const yyyy = d.getFullYear()
@@ -96,127 +92,35 @@ async function recompute() {
   if (!session.file) return
   busy.value = true
   try {
-    const res = await renderEnhanced(session.file, ops.value)
+    const res = await renderEnhanced(session.file, ops)
     enhancedBlob.value = res.enhanced.blob
     setEnhancedPreview(res.enhanced.blob)
-    cropMode.value = false
-    cropRect.value = null
   } finally {
     busy.value = false
   }
 }
 
-async function toggle(k: keyof EnhanceOps) {
-  ops.value = { ...ops.value, [k]: !ops.value[k] }
-  await recompute()
-}
-
-async function reset() {
-  ops.value = { autobalance: false, autocrop: false, shadowremoval: false, sharpen: false }
-  await recompute()
-}
-
 function startCrop() {
   if (!enhancedUrl.value) return
   cropMode.value = true
-  cropRect.value = null
 }
 
 function cancelCrop() {
   cropMode.value = false
-  cropRect.value = null
-  cropDragging.value = false
-  cropStart.value = null
-}
-
-function clientPointToImagePoint(e: PointerEvent) {
-  const el = imgEl.value
-  if (!el) return null
-  const r = el.getBoundingClientRect()
-  const x = Math.min(Math.max(e.clientX - r.left, 0), r.width)
-  const y = Math.min(Math.max(e.clientY - r.top, 0), r.height)
-  return { x, y, w: r.width, h: r.height }
-}
-
-function onCropPointerDown(e: PointerEvent) {
-  if (!cropMode.value) return
-  e.preventDefault()
-  const p = clientPointToImagePoint(e)
-  if (!p) return
-  cropDragging.value = true
-  cropStart.value = { x: p.x, y: p.y }
-  cropRect.value = { x: p.x, y: p.y, w: 0, h: 0 }
-  ;(e.currentTarget as HTMLElement | null)?.setPointerCapture?.(e.pointerId)
-}
-
-function onCropPointerMove(e: PointerEvent) {
-  if (!cropMode.value || !cropDragging.value) return
-  e.preventDefault()
-  const start = cropStart.value
-  const p = clientPointToImagePoint(e)
-  if (!start || !p) return
-
-  const dx = p.x - start.x
-  const dy = p.y - start.y
-  const absDx = Math.abs(dx)
-  const absDy = Math.abs(dy)
-
-  let w = absDx
-  let h = absDy
-  if (w / Math.max(h, 1e-6) > cropAspect) {
-    h = w / cropAspect
-  } else {
-    w = h * cropAspect
-  }
-
-  const x2 = start.x + Math.sign(dx || 1) * w
-  const y2 = start.y + Math.sign(dy || 1) * h
-
-  const x1 = Math.min(start.x, x2)
-  const y1 = Math.min(start.y, y2)
-  const x3 = Math.max(start.x, x2)
-  const y3 = Math.max(start.y, y2)
-
-  cropRect.value = { x: x1, y: y1, w: x3 - x1, h: y3 - y1 }
-}
-
-function onCropPointerUp() {
-  if (!cropMode.value) return
-  cropDragging.value = false
-  cropStart.value = null
 }
 
 async function applyCrop() {
-  if (!enhancedBlob.value) return
-  const el = imgEl.value
-  const rect = cropRect.value
-  if (!el || !rect) return
-
-  const r = el.getBoundingClientRect()
-  if (r.width <= 0 || r.height <= 0) return
-
-  const minSize = 16
-  if (rect.w < minSize || rect.h < minSize) return
+  const c = cropperRef.value
+  if (!c) return
+  const result = c.getResult?.()
+  const canvas = result?.canvas
+  if (!canvas) return
 
   busy.value = true
   try {
-    const bmp = await createImageBitmap(enhancedBlob.value)
-    const sx = (rect.x / r.width) * bmp.width
-    const sy = (rect.y / r.height) * bmp.height
-    const sw = (rect.w / r.width) * bmp.width
-    const sh = (rect.h / r.height) * bmp.height
-
-    const canvas = document.createElement('canvas')
-    canvas.width = Math.max(1, Math.round(sw))
-    canvas.height = Math.max(1, Math.round(sh))
-    const ctx = canvas.getContext('2d')
-    if (!ctx) throw new Error('no_canvas')
-    ctx.drawImage(bmp, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height)
-
     const out: Blob = await new Promise((resolve, reject) => {
-      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('toBlob_failed'))), 'image/jpeg', 0.92)
+      canvas.toBlob((b: Blob | null) => (b ? resolve(b) : reject(new Error('toBlob_failed'))), 'image/jpeg', 0.92)
     })
-
     enhancedBlob.value = out
     setEnhancedPreview(out)
     cancelCrop()
@@ -390,7 +294,6 @@ onMounted(async () => {
         <div class="aspect-[4/5] overflow-hidden">
           <img
             v-if="enhancedUrl"
-            ref="imgEl"
             class="h-full w-full object-cover"
             :src="enhancedUrl"
             alt="Enhanced"
@@ -399,33 +302,17 @@ onMounted(async () => {
         <div v-if="busy" class="absolute inset-0 grid place-items-center bg-black/35">
           <div class="h-8 w-8 animate-spin rounded-full border-2 border-white/25 border-t-white/80" />
         </div>
-
-        <div v-if="cropMode" class="absolute inset-0">
-          <div
-            class="absolute inset-0 cursor-crosshair"
-            style="touch-action: none"
-            @pointerdown="onCropPointerDown"
-            @pointermove="onCropPointerMove"
-            @pointerup="onCropPointerUp"
-            @pointercancel="onCropPointerUp"
-            @pointerleave="onCropPointerUp"
-          />
-          <div v-if="cropRect" class="absolute border-2 border-emerald-400/80" :style="{ left: cropRect.x + 'px', top: cropRect.y + 'px', width: cropRect.w + 'px', height: cropRect.h + 'px' }" />
-          <div v-if="cropRect" class="absolute bg-black/35" :style="{ left: '0px', top: '0px', width: '100%', height: cropRect.y + 'px' }" />
-          <div v-if="cropRect" class="absolute bg-black/35" :style="{ left: '0px', top: (cropRect.y + cropRect.h) + 'px', width: '100%', height: 'calc(100% - ' + (cropRect.y + cropRect.h) + 'px)' }" />
-          <div v-if="cropRect" class="absolute bg-black/35" :style="{ left: '0px', top: cropRect.y + 'px', width: cropRect.x + 'px', height: cropRect.h + 'px' }" />
-          <div v-if="cropRect" class="absolute bg-black/35" :style="{ left: (cropRect.x + cropRect.w) + 'px', top: cropRect.y + 'px', width: 'calc(100% - ' + (cropRect.x + cropRect.w) + 'px)', height: cropRect.h + 'px' }" />
-        </div>
       </div>
 
       <div class="mt-4">
         <div class="flex items-center justify-between gap-3">
           <button
             class="rounded-full bg-black/5 px-3 py-2 text-xs text-primary ring-1 ring-black/10 hover:bg-black/10"
-            :disabled="busy"
-            @click="showAdjust = !showAdjust"
+            type="button"
+            :disabled="busy || cropMode"
+            @click="startCrop"
           >
-            {{ showAdjust ? 'Hide' : 'Adjust' }}
+            Recadrer
           </button>
 
           <div v-if="session.target === 'event'" class="flex flex-wrap justify-end gap-2">
@@ -467,71 +354,35 @@ onMounted(async () => {
             </button>
           </div>
         </div>
+      </div>
+    </div>
 
-        <div v-if="showAdjust" class="mt-3 grid gap-3">
-          <div class="flex flex-wrap gap-2">
-            <button
-              class="rounded-full px-3 py-2 text-xs ring-1 ring-black/10"
-              :class="cropMode ? 'bg-emerald-500/20 text-emerald-200 ring-emerald-400/30' : 'bg-black/5 text-primary hover:bg-black/10'"
-              :disabled="busy"
-              @click="cropMode ? cancelCrop() : startCrop()"
-            >
-              Crop
-            </button>
-            <button
-              class="rounded-full px-3 py-2 text-xs ring-1 ring-black/10"
-              :class="ops.autobalance ? 'bg-emerald-500/20 text-emerald-200 ring-emerald-400/30' : 'bg-black/5 text-primary hover:bg-black/10'"
-              :disabled="busy"
-              @click="toggle('autobalance')"
-            >
-              Autobalance
-            </button>
-            <button
-              class="rounded-full px-3 py-2 text-xs ring-1 ring-black/10"
-              :class="ops.autocrop ? 'bg-emerald-500/20 text-emerald-200 ring-emerald-400/30' : 'bg-black/5 text-primary hover:bg-black/10'"
-              :disabled="busy"
-              @click="toggle('autocrop')"
-            >
-              Autocrop
-            </button>
-            <button
-              class="rounded-full px-3 py-2 text-xs ring-1 ring-black/10"
-              :class="ops.shadowremoval ? 'bg-emerald-500/20 text-emerald-200 ring-emerald-400/30' : 'bg-black/5 text-primary hover:bg-black/10'"
-              :disabled="busy"
-              @click="toggle('shadowremoval')"
-            >
-              Shadowremoval
-            </button>
-            <button
-              class="rounded-full px-3 py-2 text-xs ring-1 ring-black/10"
-              :class="ops.sharpen ? 'bg-emerald-500/20 text-emerald-200 ring-emerald-400/30' : 'bg-black/5 text-primary hover:bg-black/10'"
-              :disabled="busy"
-              @click="toggle('sharpen')"
-            >
-              Sharpen
-            </button>
-            <button
-              class="rounded-full px-3 py-2 text-xs ring-1 ring-black/10"
-              :class="(ops.autobalance || ops.autocrop || ops.shadowremoval || ops.sharpen) ? 'bg-black/10 text-primary hover:bg-black/15' : 'bg-black/5 text-primary/70'"
-              :disabled="busy"
-              @click="reset"
-            >
-              Reset
-            </button>
-          </div>
+    <div v-if="cropMode" class="fixed inset-0 z-50 bg-black/70" style="padding-top: max(env(safe-area-inset-top), 16px); padding-bottom: max(env(safe-area-inset-bottom), 16px)">
+      <div class="mx-auto flex h-full max-w-3xl flex-col px-5">
+        <div class="flex items-center justify-between py-3">
+          <div class="text-sm font-semibold text-white">Recadrer</div>
+          <button class="text-sm font-semibold text-white/80 underline" type="button" :disabled="busy" @click="cancelCrop">Fermer</button>
+        </div>
 
-          <div v-if="cropMode" class="grid grid-cols-2 gap-2">
-            <button class="rounded-xl bg-black/10 px-4 py-3 text-sm hover:bg-black/15" :disabled="busy" @click="cancelCrop">
-              Cancel
-            </button>
-            <button
-              class="rounded-xl bg-emerald-500 px-4 py-3 text-sm font-medium text-emerald-950 hover:bg-emerald-400"
-              :disabled="busy || !cropRect"
-              @click="applyCrop"
-            >
-              Apply crop
-            </button>
-          </div>
+        <div class="min-h-0 flex-1 overflow-hidden rounded-2xl bg-black">
+          <Cropper
+            v-if="enhancedUrl"
+            ref="cropperRef"
+            class="h-full w-full"
+            :src="enhancedUrl"
+            :stencil-props="{ movable: true, resizable: true }"
+            :default-size="({ imageSize }: any) => ({ width: imageSize.width, height: imageSize.height })"
+            image-restriction="stencil"
+          />
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 py-4">
+          <button class="w-full rounded-xl bg-white/15 px-4 py-3 text-sm font-semibold text-white hover:bg-white/20" type="button" :disabled="busy" @click="cancelCrop">
+            Annuler
+          </button>
+          <button class="w-full rounded-xl bg-cta px-4 py-3 text-sm font-semibold text-background hover:bg-cta/90" type="button" :disabled="busy" @click="applyCrop">
+            Appliquer
+          </button>
         </div>
       </div>
     </div>
@@ -553,7 +404,6 @@ onMounted(async () => {
             Enregistrer
           </button>
         </div>
-        <div class="text-center text-xs text-primary/70" v-if="cropMode">Finish crop (Apply/Cancel) to save</div>
       </div>
     </div>
   </main>

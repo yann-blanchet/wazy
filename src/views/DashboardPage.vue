@@ -47,16 +47,19 @@ function triggerCamera() {
 }
 
 const activeTab = ref<'menu' | 'resto' | 'compte'>('menu')
+const isEmployee = computed(() => auth.role === 'worker')
 
 onMounted(() => {
   const q = route.query.tab
   if (q === 'menu' || q === 'resto' || q === 'compte') activeTab.value = q
+  if (isEmployee.value) activeTab.value = 'menu'
 })
 
 watch(
   () => route.query.tab,
   (q) => {
     if (q === 'menu' || q === 'resto' || q === 'compte') activeTab.value = q
+    if (isEmployee.value) activeTab.value = 'menu'
   }
 )
 
@@ -327,6 +330,18 @@ async function onTakePhotoChange(e: Event) {
           </svg>
         </button>
 
+        <button
+          v-if="auth.isMaster"
+          class="flex w-full items-center justify-between rounded-xl bg-black/5 px-4 py-3 text-left text-sm text-primary hover:bg-black/10"
+          type="button"
+          @click="go('/qr-access')"
+        >
+          <span>Accès QR employés</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-primary/60">
+            <path d="M9 18l6-6-6-6" />
+          </svg>
+        </button>
+
         <button class="flex w-full items-center justify-between rounded-xl bg-black/5 px-4 py-3 text-left text-sm text-primary hover:bg-black/10" type="button" @click="go('/equipe')">
           <span>Équipe</span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-primary/60">
@@ -356,10 +371,10 @@ async function onTakePhotoChange(e: Event) {
     </div>
 
     <div
-      class="fixed inset-x-0 bottom-0 z-[80] border-t border-black/10 bg-background/95 px-4 py-3 backdrop-blur"
+      class="fixed inset-x-0 bottom-0 z-[70] border-t border-black/10 bg-background/95 px-4 py-3 backdrop-blur"
       style="padding-bottom: max(env(safe-area-inset-bottom), 12px)"
     >
-      <div class="mx-auto grid max-w-lg grid-cols-3 gap-3">
+      <div class="mx-auto grid max-w-lg gap-3" :class="isEmployee ? 'grid-cols-1' : 'grid-cols-3'">
         <button
           class="flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-xs font-semibold"
           :class="activeTab === 'menu' ? 'bg-primary text-background shadow-lg shadow-black/20' : 'bg-black/10 text-primary'"
@@ -376,6 +391,7 @@ async function onTakePhotoChange(e: Event) {
           <span>Menu du jour</span>
         </button>
         <button
+          v-if="!isEmployee"
           class="flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-xs font-semibold"
           :class="activeTab === 'resto' ? 'bg-primary text-background shadow-lg shadow-black/20' : 'bg-black/10 text-primary'"
           type="button"
@@ -389,6 +405,7 @@ async function onTakePhotoChange(e: Event) {
           <span>Mon resto</span>
         </button>
         <button
+          v-if="!isEmployee"
           class="flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-xs font-semibold"
           :class="activeTab === 'compte' ? 'bg-primary text-background shadow-lg shadow-black/20' : 'bg-black/10 text-primary'"
           type="button"

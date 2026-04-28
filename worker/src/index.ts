@@ -6,6 +6,14 @@ export interface Env {
   RESTAURANTS: KVNamespace
 }
 
+function randomHex(bytesLen = 32) {
+  const bytes = new Uint8Array(bytesLen)
+  crypto.getRandomValues(bytes)
+  let out = ''
+  for (const b of bytes) out += b.toString(16).padStart(2, '0')
+  return out
+}
+
 function normalizeRestaurantPhotos(rec: RestaurantRecord): RestaurantPhotoItem[] {
   const anyRec = rec as unknown as { photos?: RestaurantPhotoItem[] }
   if (Array.isArray(anyRec.photos)) return anyRec.photos
@@ -51,12 +59,56 @@ type RestaurantRecord = {
   id: string
   workerKey: string
   masterKey: string
+  employeeKeys?: string[]
+  ownerKeys?: string[]
   adminEmail?: string
   public: RestaurantPublic
   menus: MenuItem[]
   permanentMenu?: PermanentMenu
   permanentMenus?: PermanentMenuItem[]
   photos?: RestaurantPhotoItem[]
+  qrLinks?: QrLinkMeta[]
+}
+
+type QrLinkMeta = {
+  tokenHash: string
+  role: Role
+  createdAt: number
+}
+
+type QrTokenRecord = {
+  id: string
+  role: Role
+  key: string
+  createdAt: number
+  lastUsedAt?: number
+}
+
+function normalizeEmployeeKeys(rec: RestaurantRecord): string[] {
+  const anyRec = rec as unknown as { employeeKeys?: string[] }
+  if (Array.isArray(anyRec.employeeKeys)) {
+    if (rec.workerKey && !anyRec.employeeKeys.includes(rec.workerKey)) anyRec.employeeKeys.unshift(rec.workerKey)
+    return anyRec.employeeKeys
+  }
+  ;(rec as unknown as { employeeKeys?: string[] }).employeeKeys = rec.workerKey ? [rec.workerKey] : []
+  return (rec as unknown as { employeeKeys?: string[] }).employeeKeys ?? []
+}
+
+function normalizeOwnerKeys(rec: RestaurantRecord): string[] {
+  const anyRec = rec as unknown as { ownerKeys?: string[] }
+  if (Array.isArray(anyRec.ownerKeys)) {
+    if (rec.masterKey && !anyRec.ownerKeys.includes(rec.masterKey)) anyRec.ownerKeys.unshift(rec.masterKey)
+    return anyRec.ownerKeys
+  }
+  ;(rec as unknown as { ownerKeys?: string[] }).ownerKeys = rec.masterKey ? [rec.masterKey] : []
+  return (rec as unknown as { ownerKeys?: string[] }).ownerKeys ?? []
+}
+
+function normalizeQrLinks(rec: RestaurantRecord): QrLinkMeta[] {
+  const anyRec = rec as unknown as { qrLinks?: QrLinkMeta[] }
+  if (Array.isArray(anyRec.qrLinks)) return anyRec.qrLinks
+  ;(rec as unknown as { qrLinks?: QrLinkMeta[] }).qrLinks = []
+  return []
 }
 
 function normalizePermanentMenus(rec: RestaurantRecord): PermanentMenuItem[] {
@@ -275,8 +327,14 @@ async function authRestaurant(env: Env, key: string): Promise<{ rec: RestaurantR
   if (!idx) return null
   const rec = await getRestaurant(env, idx.id)
   if (!rec) return null
-  if (idx.role === 'master' && key !== rec.masterKey) return null
-  if (idx.role === 'worker' && key !== rec.workerKey) return null
+  if (idx.role === 'master') {
+    const ownerKeys = normalizeOwnerKeys(rec)
+    if (!ownerKeys.includes(key)) return null
+  }
+  if (idx.role === 'worker') {
+    const employeeKeys = normalizeEmployeeKeys(rec)
+    if (!employeeKeys.includes(key)) return null
+  }
   return { rec, role: idx.role }
 }
 
@@ -326,6 +384,8 @@ async function handle(req: Request, env: Env): Promise<Response> {
       id,
       workerKey,
       masterKey,
+      employeeKeys: [workerKey],
+      ownerKeys: [masterKey],
       adminEmail: undefined,
       public: {
         id,
@@ -338,7 +398,8 @@ async function handle(req: Request, env: Env): Promise<Response> {
       menus: [],
       permanentMenu: undefined,
       permanentMenus: [],
-      photos: []
+      photos: [],
+      qrLinks: []
     }
 
     await putRestaurant(env, rec)
@@ -347,6 +408,27 @@ async function handle(req: Request, env: Env): Promise<Response> {
     await putKeyIndex(env, workerKey, { id, role: 'worker' })
 
     return json({ id, workerKey, masterKey })
+  }
+
+  if (url.pathname === '/api/auth/qr' && req.method === 'POST') {
+    const body = await readJson<{ token: string }>(req)
+    const token = typeof body.token === 'string' ? body.token.trim() : ''
+    if (!token) return json({ error: 'missing_token' }, { status: 400 })
+
+    const tokenHash = await sha256Hex(`qr:${token}`)
+    const raw = await env.RESTAURANTS.get(`qr:${tokenHash}`)
+    if (!raw) return json({ error: 'invalid_token' }, { status: 401 })
+
+    const tokenRec = JSON.parse(raw) as QrTokenRecord
+    if (!tokenRec?.id || !tokenRec?.role || !tokenRec?.key) return json({ error: 'invalid_token' }, { status: 401 })
+
+    const idx = await getKeyIndex(env, tokenRec.key)
+    if (!idx || idx.id !== tokenRec.id || idx.role !== tokenRec.role) return json({ error: 'invalid_token' }, { status: 401 })
+
+    tokenRec.lastUsedAt = Date.now()
+    await env.RESTAURANTS.put(`qr:${tokenHash}`, JSON.stringify(tokenRec))
+
+    return json({ id: tokenRec.id, role: tokenRec.role, key: tokenRec.key })
   }
 
   if (url.pathname === '/api/account/admin-email' && req.method === 'GET') {
@@ -379,73 +461,11 @@ async function handle(req: Request, env: Env): Promise<Response> {
   }
 
   if (url.pathname === '/api/account/recovery/request' && req.method === 'POST') {
-    const body = await readJsonOptional<{ id?: string; adminEmail?: string }>(req)
-    const id = typeof body?.id === 'string' ? body.id.trim() : ''
-    const email = typeof body?.adminEmail === 'string' ? normalizeEmail(body.adminEmail) : ''
-    if (!id) return json({ error: 'missing_id' }, { status: 400 })
-    if (!email) return json({ error: 'missing_email' }, { status: 400 })
-    if (!isValidEmail(email)) return json({ error: 'invalid_email' }, { status: 400 })
-
-    const rec = await getRestaurant(env, id)
-    if (!rec) return json({ ok: true })
-
-    const stored = normalizeEmail(rec.adminEmail ?? '')
-    if (!stored || stored !== email) return json({ ok: true })
-
-    const token = randomId(32)
-    const tokenHash = await sha256Hex(`recovery:${token}`)
-    const tokenRec: RecoveryTokenRecord = {
-      id: rec.id,
-      adminEmail: stored,
-      createdAt: Date.now()
-    }
-
-    await env.RESTAURANTS.put(`recovery:${tokenHash}`, JSON.stringify(tokenRec), {
-      expirationTtl: 60 * 15
-    })
-
-    await sendRecoveryEmail(env, { to: stored, restaurantId: rec.id, token })
-
-    return json({ ok: true })
+    return json({ error: 'email_disabled' }, { status: 503 })
   }
 
   if (url.pathname === '/api/account/recovery/confirm' && req.method === 'POST') {
-    const body = await readJsonOptional<{ id?: string; token?: string }>(req)
-    const id = typeof body?.id === 'string' ? body.id.trim() : ''
-    const token = typeof body?.token === 'string' ? body.token.trim() : ''
-    if (!id) return json({ error: 'missing_id' }, { status: 400 })
-    if (!token) return json({ error: 'missing_token' }, { status: 400 })
-
-    const tokenHash = await sha256Hex(`recovery:${token}`)
-    const raw = await env.RESTAURANTS.get(`recovery:${tokenHash}`)
-    if (!raw) return json({ error: 'invalid_token' }, { status: 400 })
-
-    const tokenRec = JSON.parse(raw) as RecoveryTokenRecord
-    if (!tokenRec?.id || tokenRec.id !== id) return json({ error: 'invalid_token' }, { status: 400 })
-
-    const rec = await getRestaurant(env, id)
-    if (!rec) return json({ error: 'not_found' }, { status: 404 })
-
-    const oldMasterKey = rec.masterKey
-    let nextMasterKey: string | null = null
-    for (let i = 0; i < 10; i++) {
-      const candidate = randomKey('msr')
-      const existing = await getKeyIndex(env, candidate)
-      if (!existing) {
-        nextMasterKey = candidate
-        break
-      }
-    }
-    if (!nextMasterKey) return json({ error: 'key_generation_failed' }, { status: 500 })
-
-    rec.masterKey = nextMasterKey
-    await putRestaurant(env, rec)
-    await deleteKeyIndex(env, oldMasterKey)
-    await putKeyIndex(env, nextMasterKey, { id: rec.id, role: 'master' })
-
-    await env.RESTAURANTS.delete(`recovery:${tokenHash}`)
-
-    return json({ masterKey: nextMasterKey })
+    return json({ error: 'email_disabled' }, { status: 503 })
   }
 
   if (url.pathname === '/api/auth' && req.method === 'POST') {
@@ -455,6 +475,103 @@ async function handle(req: Request, env: Env): Promise<Response> {
     if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
 
     return json({ id: auth.rec.id, role: auth.role })
+  }
+
+  if (url.pathname === '/api/qr/list' && req.method === 'GET') {
+    const key = parseAuthKeyFromHeader(req)
+    if (!key) return json({ error: 'missing_auth' }, { status: 401 })
+
+    const auth = await authRestaurant(env, key)
+    if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
+    if (auth.role !== 'master') return json({ error: 'forbidden' }, { status: 403 })
+
+    const list = normalizeQrLinks(auth.rec)
+    return json({ items: list })
+  }
+
+  if (url.pathname === '/api/qr/create' && req.method === 'POST') {
+    const key = parseAuthKeyFromHeader(req)
+    if (!key) return json({ error: 'missing_auth' }, { status: 401 })
+
+    const auth = await authRestaurant(env, key)
+    if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
+    if (auth.role !== 'master') return json({ error: 'forbidden' }, { status: 403 })
+
+    const body = await readJsonOptional<{ role?: Role }>(req)
+    const role: Role = body?.role === 'master' || body?.role === 'worker' ? body.role : 'worker'
+
+    let nextKey: string | null = null
+    const prefix = role === 'master' ? 'msr' : 'wkr'
+    for (let i = 0; i < 10; i++) {
+      const candidate = randomKey(prefix)
+      const existing = await getKeyIndex(env, candidate)
+      if (!existing) {
+        nextKey = candidate
+        break
+      }
+    }
+    if (!nextKey) return json({ error: 'key_generation_failed' }, { status: 500 })
+
+    const token = randomHex(32)
+    const tokenHash = await sha256Hex(`qr:${token}`)
+
+    const tokenRec: QrTokenRecord = {
+      id: auth.rec.id,
+      role,
+      key: nextKey,
+      createdAt: Date.now()
+    }
+    await env.RESTAURANTS.put(`qr:${tokenHash}`, JSON.stringify(tokenRec))
+
+    if (role === 'master') {
+      const ownerKeys = normalizeOwnerKeys(auth.rec)
+      if (!ownerKeys.includes(nextKey)) ownerKeys.push(nextKey)
+    } else {
+      const employeeKeys = normalizeEmployeeKeys(auth.rec)
+      if (!employeeKeys.includes(nextKey)) employeeKeys.push(nextKey)
+    }
+
+    const links = normalizeQrLinks(auth.rec)
+    links.push({ tokenHash, role, createdAt: tokenRec.createdAt })
+    await putRestaurant(env, auth.rec)
+
+    await putKeyIndex(env, nextKey, { id: auth.rec.id, role })
+
+    const origin = env.APP_ORIGIN.replace(/\/+$/, '')
+    const url = `${origin}/auth?t=${encodeURIComponent(token)}`
+    return json({ token, url, tokenHash, role })
+  }
+
+  if (url.pathname === '/api/qr/revoke' && req.method === 'POST') {
+    const key = parseAuthKeyFromHeader(req)
+    if (!key) return json({ error: 'missing_auth' }, { status: 401 })
+
+    const auth = await authRestaurant(env, key)
+    if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
+    if (auth.role !== 'master') return json({ error: 'forbidden' }, { status: 403 })
+
+    const body = await readJson<{ tokenHash: string }>(req)
+    const tokenHash = typeof body.tokenHash === 'string' ? body.tokenHash.trim() : ''
+    if (!tokenHash) return json({ error: 'missing_token_hash' }, { status: 400 })
+
+    const raw = await env.RESTAURANTS.get(`qr:${tokenHash}`)
+    if (raw) {
+      const tokenRec = JSON.parse(raw) as QrTokenRecord
+      if (tokenRec?.key && tokenRec?.id === auth.rec.id) {
+        await deleteKeyIndex(env, tokenRec.key)
+        const ownerKeys = normalizeOwnerKeys(auth.rec)
+        const employeeKeys = normalizeEmployeeKeys(auth.rec)
+        ;(auth.rec as unknown as { ownerKeys?: string[] }).ownerKeys = ownerKeys.filter((k) => k !== tokenRec.key)
+        ;(auth.rec as unknown as { employeeKeys?: string[] }).employeeKeys = employeeKeys.filter((k) => k !== tokenRec.key)
+      }
+      await env.RESTAURANTS.delete(`qr:${tokenHash}`)
+    }
+
+    const links = normalizeQrLinks(auth.rec)
+    ;(auth.rec as unknown as { qrLinks?: QrLinkMeta[] }).qrLinks = links.filter((l) => l.tokenHash !== tokenHash)
+    await putRestaurant(env, auth.rec)
+
+    return json({ ok: true })
   }
 
   if (url.pathname === '/api/worker/regenerate' && req.method === 'POST') {
@@ -478,6 +595,8 @@ async function handle(req: Request, env: Env): Promise<Response> {
     if (!nextWorkerKey) return json({ error: 'key_generation_failed' }, { status: 500 })
 
     auth.rec.workerKey = nextWorkerKey
+    const employeeKeys = normalizeEmployeeKeys(auth.rec)
+    ;(auth.rec as unknown as { employeeKeys?: string[] }).employeeKeys = Array.from(new Set([nextWorkerKey, ...employeeKeys.filter((k) => k !== oldWorkerKey)]))
     await putRestaurant(env, auth.rec)
     await deleteKeyIndex(env, oldWorkerKey)
     await putKeyIndex(env, nextWorkerKey, { id: auth.rec.id, role: 'worker' })
@@ -505,6 +624,9 @@ async function handle(req: Request, env: Env): Promise<Response> {
 
     const oldWorkerKey = auth.rec.workerKey
     auth.rec.workerKey = nextWorkerKey
+
+    const employeeKeys = normalizeEmployeeKeys(auth.rec)
+    ;(auth.rec as unknown as { employeeKeys?: string[] }).employeeKeys = Array.from(new Set([nextWorkerKey, ...employeeKeys.filter((k) => k !== oldWorkerKey)]))
     await putRestaurant(env, auth.rec)
 
     if (oldWorkerKey !== nextWorkerKey) {

@@ -10,10 +10,7 @@ const auth = useAuthStore()
 const adminEmail = ref<string>('')
 const adminEmailStatus = ref<string>('')
 
-const recoveryEmail = ref<string>('')
-const recoveryToken = ref<string>('')
-const recoveryStatus = ref<string>('')
-const recoveredMasterKey = ref<string>('')
+const recoveryDisabled = true
 
 onMounted(async () => {
   try {
@@ -23,7 +20,6 @@ onMounted(async () => {
       key: auth.key
     })
     adminEmail.value = res.adminEmail ?? ''
-    recoveryEmail.value = adminEmail.value
   } catch {
     adminEmail.value = ''
   }
@@ -40,45 +36,10 @@ async function saveAdminEmail() {
       body: { adminEmail: adminEmail.value }
     })
     adminEmail.value = res.adminEmail ?? ''
-    recoveryEmail.value = adminEmail.value
     adminEmailStatus.value = 'Enregistré.'
   } catch (e) {
     adminEmailStatus.value = e instanceof Error ? e.message : 'save_error'
   }
-}
-
-async function requestRecoveryToken() {
-  try {
-    recoveryStatus.value = 'Envoi…'
-    recoveredMasterKey.value = ''
-    await apiFetch<{ ok: true }>('/api/account/recovery/request', {
-      method: 'POST',
-      body: { id: auth.id ?? '', adminEmail: recoveryEmail.value }
-    })
-    recoveryStatus.value = 'Email envoyé (si l’adresse correspond).'
-  } catch (e) {
-    recoveryStatus.value = e instanceof Error ? e.message : 'request_error'
-  }
-}
-
-async function confirmRecoveryToken() {
-  try {
-    recoveryStatus.value = 'Validation…'
-    const res = await apiFetch<{ masterKey: string }>('/api/account/recovery/confirm', {
-      method: 'POST',
-      body: { id: auth.id ?? '', token: recoveryToken.value }
-    })
-    recoveredMasterKey.value = res.masterKey
-    recoveryStatus.value = 'Nouvelle clé maître générée.'
-  } catch (e) {
-    recoveredMasterKey.value = ''
-    recoveryStatus.value = e instanceof Error ? e.message : 'confirm_error'
-  }
-}
-
-async function copyRecoveredMasterKey() {
-  if (!recoveredMasterKey.value) return
-  await navigator.clipboard.writeText(recoveredMasterKey.value)
 }
 
 async function back() {
@@ -118,57 +79,9 @@ async function back() {
       <div v-else class="mt-4 text-sm text-primary/70">Disponible uniquement avec la clé maître.</div>
     </section>
 
-    <section class="mt-4 rounded-2xl bg-black/5 p-5">
+    <section v-if="recoveryDisabled" class="mt-4 rounded-2xl bg-black/5 p-5">
       <h2 class="text-lg font-semibold text-primary">Récupération clé maître</h2>
-      <p class="mt-1 text-sm text-primary/70">Envoie un code par email, puis régénère la clé maître.</p>
-
-      <div class="mt-4 grid gap-2">
-        <input
-          v-model="recoveryEmail"
-          type="email"
-          class="w-full rounded-xl border border-black/10 bg-black/5 px-3 py-3 text-sm text-primary outline-none focus:border-primary/60"
-          placeholder="Email admin"
-          autocomplete="email"
-        />
-
-        <button
-          class="w-full rounded-xl bg-black/10 px-4 py-3 text-sm text-primary hover:bg-black/15"
-          type="button"
-          @click="requestRecoveryToken"
-        >
-          Envoyer le code
-        </button>
-
-        <input
-          v-model="recoveryToken"
-          class="w-full rounded-xl border border-black/10 bg-black/5 px-3 py-3 font-mono text-sm text-primary outline-none focus:border-primary/60"
-          placeholder="Code reçu par email"
-          autocomplete="one-time-code"
-        />
-
-        <button
-          class="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-background hover:bg-primary/90"
-          type="button"
-          :disabled="recoveryToken.trim().length === 0"
-          @click="confirmRecoveryToken"
-        >
-          Confirmer et régénérer la clé maître
-        </button>
-
-        <div v-if="recoveredMasterKey" class="rounded-xl bg-black/10 p-3">
-          <div class="text-xs text-primary/70">Nouvelle clé maître :</div>
-          <div class="mt-1 break-all font-mono text-sm text-primary">{{ recoveredMasterKey }}</div>
-          <button
-            class="mt-2 rounded-lg bg-black/10 px-3 py-2 text-sm text-primary hover:bg-black/15"
-            type="button"
-            @click="copyRecoveredMasterKey"
-          >
-            Copier
-          </button>
-        </div>
-
-        <div v-if="recoveryStatus" class="text-xs text-primary/70">{{ recoveryStatus }}</div>
-      </div>
+      <p class="mt-1 text-sm text-primary/70">Désactivé pour le moment.</p>
     </section>
   </main>
 </template>

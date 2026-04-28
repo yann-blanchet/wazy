@@ -16,12 +16,16 @@ import EquipePage from './views/EquipePage.vue'
 import StatsPage from './views/StatsPage.vue'
 import LogoutPage from './views/LogoutPage.vue'
 import RecupAdminPage from './views/RecupAdminPage.vue'
+import AuthPage from './views/AuthPage.vue'
+import QrAccessPage from './views/QrAccessPage.vue'
 
 export const routes: RouteRecordRaw[] = [
   { path: '/', name: 'login', component: LoginPage },
+  { path: '/auth', name: 'auth', component: AuthPage },
   { path: '/login', redirect: '/' },
   { path: '/dashboard', name: 'dashboard', component: DashboardPage },
   { path: '/recup-admin', name: 'recup-admin', component: RecupAdminPage },
+  { path: '/qr-access', name: 'qr-access', component: QrAccessPage },
   { path: '/infos', name: 'infos', component: InfosPage },
   { path: '/carte', name: 'carte', component: CarteRestoPage },
   { path: '/galerie', name: 'galerie', component: GaleriePage },

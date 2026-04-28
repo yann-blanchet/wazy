@@ -23,9 +23,14 @@ router.beforeEach((to) => {
     if (auth.isAuthed) return { path: '/dashboard' }
   }
 
+  if (to.path === '/auth') {
+    return true
+  }
+
   if (
     to.path === '/dashboard' ||
     to.path === '/recup-admin' ||
+    to.path === '/qr-access' ||
     to.path === '/infos' ||
     to.path === '/carte' ||
     to.path === '/galerie' ||

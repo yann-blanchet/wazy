@@ -64,6 +64,9 @@ onMounted(() => {
   const q = route.query.tab
   if (q === 'menu' || q === 'resto') activeTab.value = q
   if (isEmployee.value) activeTab.value = 'menu'
+
+  const mode = route.query.mode
+  if (activeTab.value === 'menu' && (mode === 'menu' || mode === 'event')) menuMode.value = mode
 })
 
 watch(
@@ -71,6 +74,14 @@ watch(
   (q) => {
     if (q === 'menu' || q === 'resto') activeTab.value = q
     if (isEmployee.value) activeTab.value = 'menu'
+  }
+)
+
+watch(
+  () => route.query.mode,
+  (mode) => {
+    if (activeTab.value !== 'menu') return
+    if (mode === 'menu' || mode === 'event') menuMode.value = mode
   }
 )
 
@@ -334,7 +345,7 @@ async function onTakePhotoChange(e: Event) {
   if (!file) return
 
   if (takePhotoTarget.value === 'event') {
-    enhanceSession.start(file, eventDate.value, 'event', '/dashboard?tab=menu')
+    enhanceSession.start(file, eventDate.value, 'event', '/dashboard?tab=menu&mode=event')
   } else {
     enhanceSession.start(file, selectedDate.value, 'menu', '/dashboard?tab=menu')
   }
@@ -353,7 +364,7 @@ async function onTakePhotoChange(e: Event) {
     </div>
 
     <div class="mt-6 flex flex-1 flex-col overflow-hidden">
-      <div v-if="activeTab === 'menu'" class="flex flex-1 flex-col overflow-hidden pb-24">
+      <div v-if="activeTab === 'menu'" class="flex flex-1 flex-col overflow-hidden pb-16">
         <div class="flex flex-1 min-h-0 flex-col gap-2 ">
           <div v-if="menuMode === 'event'" class="flex flex-1 min-h-0 flex-col">
             <div class="relative flex min-h-0 flex-1 overflow-hidden rounded-2xl border border-black/10">
@@ -379,52 +390,60 @@ async function onTakePhotoChange(e: Event) {
                   <div v-if="eventQuickLabel" class="rounded-full bg-background/90 px-3 py-1 text-xs font-semibold text-primary ring-1 ring-black/10 backdrop-blur">
                     {{ eventQuickLabel }} <span class="text-[11px] font-medium text-primary/70">{{ eventDateText }}</span>
                   </div>
-                  
                 </div>
                 <div class="rounded-full bg-background/90 px-3 py-1 text-xs font-semibold text-secondary/90 ring-1 ring-black/10 backdrop-blur">
                   {{ lastUpdatedEventText }}
                 </div>
               </div>
+            </div>
 
-              <div class="absolute inset-x-0 bottom-0 flex justify-center p-3">
-                <button
-                  class="inline-flex items-center justify-center rounded-full bg-cta px-4 py-3 text-sm font-semibold text-background shadow-lg shadow-black/20 hover:bg-cta/90"
-                  type="button"
-                  @click="eventItem ? deleteEvent() : triggerCamera('event')"
-                  :aria-label="eventItem ? 'Supprimer l\'événement' : 'Ajouter un événement'"
-                  :title="eventItem ? 'Supprimer l\'événement' : 'Ajouter un événement'"
+            <div class="mt-3 flex justify-center">
+              <button
+                v-if="eventItem"
+                class="inline-flex items-center justify-center rounded-full bg-black/10 px-4 py-3 text-sm font-semibold text-primary ring-1 ring-black/10 hover:bg-black/15"
+                type="button"
+                @click="deleteEvent"
+                aria-label="Supprimer l'événement"
+                title="Supprimer l'événement"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  class="h-5 w-5"
                 >
-                  <svg
-                    v-if="!eventItem"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    class="h-5 w-5"
-                  >
-                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                    <circle cx="12" cy="13" r="4" />
-                  </svg>
-                  <svg
-                    v-else
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    class="h-5 w-5"
-                  >
-                    <path d="M3 6h18" />
-                    <path d="M8 6V4h8v2" />
-                    <path d="M19 6l-1 14H6L5 6" />
-                    <path d="M10 11v6" />
-                    <path d="M14 11v6" />
-                  </svg>
-                </button>
-              </div>
+                  <path d="M3 6h18" />
+                  <path d="M8 6V4h8v2" />
+                  <path d="M19 6l-1 14H6L5 6" />
+                  <path d="M10 11v6" />
+                  <path d="M14 11v6" />
+                </svg>
+              </button>
+
+              <button
+                v-else
+                class="inline-flex items-center justify-center rounded-full bg-cta px-4 py-3 text-sm font-semibold text-background shadow-lg shadow-black/20 hover:bg-cta/90"
+                type="button"
+                @click="triggerCamera('event')"
+                aria-label="Ajouter un événement"
+                title="Ajouter un événement"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  class="h-5 w-5"
+                >
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                  <circle cx="12" cy="13" r="4" />
+                </svg>
+              </button>
             </div>
           </div>
 
@@ -455,52 +474,61 @@ async function onTakePhotoChange(e: Event) {
                   {{ lastUpdatedText }}
                 </div>
               </div>
+            </div>
 
-              <div class="absolute inset-x-0 bottom-0 flex justify-center p-3">
-                <button
-                  class="inline-flex items-center justify-center rounded-full bg-cta px-4 py-3 text-sm font-semibold text-background shadow-lg shadow-black/20 hover:bg-cta/90"
-                  type="button"
-                  @click="selectedMenu ? deleteMenuForDate() : triggerCamera()"
-                  :aria-label="selectedMenu ? 'Dépublier le menu du jour' : 'Publier le menu du jour'"
-                  :title="selectedMenu ? 'Dépublier le menu du jour' : 'Publier le menu du jour'"
+            <div class="mt-3 flex justify-center">
+              <button
+                v-if="selectedMenu"
+                class="inline-flex items-center justify-center rounded-full bg-black/10 px-4 py-3 text-sm font-semibold text-primary ring-1 ring-black/10 hover:bg-black/15"
+                type="button"
+                @click="deleteMenuForDate"
+                aria-label="Supprimer le menu du jour"
+                title="Supprimer le menu du jour"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  class="h-5 w-5"
                 >
-                  <svg
-                    v-if="!selectedMenu"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    class="h-5 w-5"
-                  >
-                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                    <circle cx="12" cy="13" r="4" />
-                  </svg>
-                  <svg
-                    v-else
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    class="h-5 w-5"
-                  >
-                    <path d="M3 6h18" />
-                    <path d="M8 6V4h8v2" />
-                    <path d="M19 6l-1 14H6L5 6" />
-                    <path d="M10 11v6" />
-                    <path d="M14 11v6" />
-                  </svg>
-                </button>
-              </div>
+                  <path d="M3 6h18" />
+                  <path d="M8 6V4h8v2" />
+                  <path d="M19 6l-1 14H6L5 6" />
+                  <path d="M10 11v6" />
+                  <path d="M14 11v6" />
+                </svg>
+              </button>
+
+              <button
+                v-else
+                class="inline-flex items-center justify-center rounded-full bg-cta px-4 py-3 text-sm font-semibold text-background shadow-lg shadow-black/20 hover:bg-cta/90"
+                type="button"
+                @click="triggerCamera()"
+                aria-label="Publier le menu du jour"
+                title="Publier le menu du jour"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  class="h-5 w-5"
+                >
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                  <circle cx="12" cy="13" r="4" />
+                </svg>
+              </button>
             </div>
           </div>
         </div>
       </div>
 
-      <div v-else-if="activeTab === 'resto'" class="grid gap-2 overflow-y-auto pb-24">
+      <div v-else-if="activeTab === 'resto'" class="grid gap-2 overflow-y-auto pb-16">
         
         <button class="flex w-full items-center justify-between rounded-xl  px-4 py-3 text-left text-sm text-primary " type="button" @click="go('/history')">
           <span>Voir tous les menus du jour</span>

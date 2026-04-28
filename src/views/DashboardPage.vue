@@ -318,17 +318,8 @@ async function onTakePhotoChange(e: Event) {
     <div class="mt-6 flex flex-1 flex-col overflow-hidden">
       <div v-if="activeTab === 'menu'" class="flex flex-1 flex-col overflow-hidden pb-24">
         <div class="flex flex-1 min-h-0 flex-col gap-2 ">
-          <div v-if="menuMode === 'event'" class="grid gap-2">
-            <label class="grid gap-2">
-              <span class="text-sm text-primary/70">Date</span>
-              <input
-                v-model="eventDate"
-                class="rounded-xl bg-black/5 px-3 py-3 text-sm text-primary outline-none ring-1 ring-black/10 focus:ring-2 focus:ring-primary"
-                type="date"
-              />
-            </label>
-
-            <div class="flex min-h-0 flex-1 overflow-hidden rounded-2xl border border-black/10">
+          <div v-if="menuMode === 'event'" class="flex flex-1 min-h-0 flex-col">
+            <div class="relative flex min-h-0 flex-1 overflow-hidden rounded-2xl border border-black/10">
               <img
                 v-if="eventItem"
                 v-show="eventPreviewState === 'loaded'"
@@ -345,121 +336,128 @@ async function onTakePhotoChange(e: Event) {
               <div v-else-if="eventPreviewState === 'missing'" class="flex flex-1 items-center justify-center p-4 text-sm text-primary/70">
                 Pas d'événement.
               </div>
-            </div>
 
-            <div class="flex items-center justify-end gap-3">
-              <div class="text-xs text-secondary/80">{{ lastUpdatedEventText }}</div>
-            </div>
+              <div class="absolute inset-x-0 top-0 flex items-center justify-between gap-3 p-3">
+                <input
+                  v-model="eventDate"
+                  class="rounded-full bg-background/90 px-3 py-1 text-xs font-semibold text-primary outline-none ring-1 ring-black/10 backdrop-blur"
+                  type="date"
+                />
+                <div class="rounded-full bg-background/90 px-3 py-1 text-xs font-semibold text-secondary/90 ring-1 ring-black/10 backdrop-blur">
+                  {{ lastUpdatedEventText }}
+                </div>
+              </div>
 
-            <div class="mt-auto flex justify-center pt-2">
-              <button
-                class="inline-flex items-center justify-center rounded-full bg-cta px-4 py-3 text-sm font-semibold text-background shadow-lg shadow-black/20 hover:bg-cta/90"
-                type="button"
-                @click="eventItem ? deleteEvent() : triggerCamera('event')"
-                :aria-label="eventItem ? 'Supprimer l\'événement' : 'Ajouter un événement'"
-                :title="eventItem ? 'Supprimer l\'événement' : 'Ajouter un événement'"
-              >
-                <svg
-                  v-if="!eventItem"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  class="h-5 w-5"
+              <div class="absolute inset-x-0 bottom-0 flex justify-center p-3">
+                <button
+                  class="inline-flex items-center justify-center rounded-full bg-cta px-4 py-3 text-sm font-semibold text-background shadow-lg shadow-black/20 hover:bg-cta/90"
+                  type="button"
+                  @click="eventItem ? deleteEvent() : triggerCamera('event')"
+                  :aria-label="eventItem ? 'Supprimer l\'événement' : 'Ajouter un événement'"
+                  :title="eventItem ? 'Supprimer l\'événement' : 'Ajouter un événement'"
                 >
-                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                  <circle cx="12" cy="13" r="4" />
-                </svg>
-                <svg
-                  v-else
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  class="h-5 w-5"
+                  <svg
+                    v-if="!eventItem"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    class="h-5 w-5"
+                  >
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                    <circle cx="12" cy="13" r="4" />
+                  </svg>
+                  <svg
+                    v-else
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    class="h-5 w-5"
+                  >
+                    <path d="M3 6h18" />
+                    <path d="M8 6V4h8v2" />
+                    <path d="M19 6l-1 14H6L5 6" />
+                    <path d="M10 11v6" />
+                    <path d="M14 11v6" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div v-else class="flex flex-1 min-h-0 flex-col">
+            <div class="relative flex min-h-0 flex-1 overflow-hidden rounded-2xl border border-black/10">
+              <img
+                v-if="serverPreviewUrl"
+                v-show="serverPreviewState === 'loaded'"
+                class="h-full w-full object-contain"
+                :src="serverPreviewUrl"
+                alt="Photo du menu existant"
+                @load="serverPreviewState = 'loaded'"
+                @error="serverPreviewState = 'missing'"
+                @click="openViewer(serverPreviewUrl)"
+              />
+              <div v-if="!serverPreviewUrl || serverPreviewState === 'loading'" class="flex flex-1 items-center justify-center p-4 text-sm text-primary/70">
+                {{ serverPreviewUrl ? 'Chargement…' : "Pas de menu pour aujourd'hui." }}
+              </div>
+              <div v-else-if="serverPreviewState === 'missing'" class="flex flex-1 items-center justify-center p-4 text-sm text-primary/70">
+                Pas de menu pour aujourd'hui.
+              </div>
+
+              <div class="absolute inset-x-0 top-0 flex items-baseline justify-between gap-3 p-3">
+                <div class="rounded-full bg-background/90 px-3 py-1 text-xs font-semibold text-primary ring-1 ring-black/10 backdrop-blur">
+                  Aujourd'hui <span class="text-[11px] font-medium text-primary/70">{{ todayDateText }}</span>
+                </div>
+                <div class="rounded-full bg-background/90 px-3 py-1 text-xs font-semibold text-secondary/90 ring-1 ring-black/10 backdrop-blur">
+                  {{ lastUpdatedText }}
+                </div>
+              </div>
+
+              <div class="absolute inset-x-0 bottom-0 flex justify-center p-3">
+                <button
+                  class="inline-flex items-center justify-center rounded-full bg-cta px-4 py-3 text-sm font-semibold text-background shadow-lg shadow-black/20 hover:bg-cta/90"
+                  type="button"
+                  @click="selectedMenu ? deleteMenuForDate() : triggerCamera()"
+                  :aria-label="selectedMenu ? 'Dépublier le menu du jour' : 'Publier le menu du jour'"
+                  :title="selectedMenu ? 'Dépublier le menu du jour' : 'Publier le menu du jour'"
                 >
-                  <path d="M3 6h18" />
-                  <path d="M8 6V4h8v2" />
-                  <path d="M19 6l-1 14H6L5 6" />
-                  <path d="M10 11v6" />
-                  <path d="M14 11v6" />
-                </svg>
-              </button>
+                  <svg
+                    v-if="!selectedMenu"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    class="h-5 w-5"
+                  >
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                    <circle cx="12" cy="13" r="4" />
+                  </svg>
+                  <svg
+                    v-else
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    class="h-5 w-5"
+                  >
+                    <path d="M3 6h18" />
+                    <path d="M8 6V4h8v2" />
+                    <path d="M19 6l-1 14H6L5 6" />
+                    <path d="M10 11v6" />
+                    <path d="M14 11v6" />
+                  </svg>
+                </button>
+              </div>
             </div>
-          </div>
-
-          <div v-else class="flex flex-1 min-h-0 flex-col gap-2">
-          <div class="flex items-baseline justify-between">
-            <div class="text-sm font-semibold text-primary">
-              Aujourd'hui <span class="text-xs font-medium text-primary/70">{{ todayDateText }}</span>
-            </div>
-          </div>
-          <div class="flex min-h-0 flex-1 overflow-hidden rounded-2xl border border-black/10">
-            <img
-              v-if="serverPreviewUrl"
-              v-show="serverPreviewState === 'loaded'"
-              class="h-full w-full object-contain"
-              :src="serverPreviewUrl"
-              alt="Photo du menu existant"
-              @load="serverPreviewState = 'loaded'"
-              @error="serverPreviewState = 'missing'"
-              @click="openViewer(serverPreviewUrl)"
-            />
-            <div v-if="!serverPreviewUrl || serverPreviewState === 'loading'" class="flex flex-1 items-center justify-center p-4 text-sm text-primary/70">
-              {{ serverPreviewUrl ? 'Chargement…' : "Pas de menu pour aujourd'hui." }}
-            </div>
-            <div v-else-if="serverPreviewState === 'missing'" class="flex flex-1 items-center justify-center p-4 text-sm text-primary/70">
-              Pas de menu pour aujourd'hui.
-            </div>
-          </div>
-
-          <div class="flex items-center justify-end gap-3">
-            <div class="text-xs text-secondary/80">{{ lastUpdatedText }}</div>
-          </div>
-
-          <div class="mt-auto flex justify-center pt-2">
-            <button
-              class="inline-flex items-center justify-center rounded-full bg-cta px-4 py-3 text-sm font-semibold text-background shadow-lg shadow-black/20 hover:bg-cta/90"
-              type="button"
-              @click="selectedMenu ? deleteMenuForDate() : triggerCamera()"
-              :aria-label="selectedMenu ? 'Dépublier le menu du jour' : 'Publier le menu du jour'"
-              :title="selectedMenu ? 'Dépublier le menu du jour' : 'Publier le menu du jour'"
-            >
-              <svg
-                v-if="!selectedMenu"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                class="h-5 w-5"
-              >
-                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                <circle cx="12" cy="13" r="4" />
-              </svg>
-              <svg
-                v-else
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                class="h-5 w-5"
-              >
-                <path d="M3 6h18" />
-                <path d="M8 6V4h8v2" />
-                <path d="M19 6l-1 14H6L5 6" />
-                <path d="M10 11v6" />
-                <path d="M14 11v6" />
-              </svg>
-            </button>
-          </div>
           </div>
         </div>
       </div>
@@ -535,12 +533,12 @@ async function onTakePhotoChange(e: Event) {
     </div>
 
     <div
-      class="fixed inset-x-0 bottom-0 z-[70] border-t border-black/10 bg-background/95 px-4 py-3 backdrop-blur"
-      style="padding-bottom: max(env(safe-area-inset-bottom), 12px)"
+      class="fixed inset-x-0 bottom-0 z-[70] border-t border-black/10 bg-background/95 px-4 py-2 backdrop-blur"
+      style="padding-bottom: max(env(safe-area-inset-bottom), 8px)"
     >
       <div class="mx-auto grid max-w-lg gap-3" :class="isEmployee ? 'grid-cols-2' : 'grid-cols-3'">
         <button
-          class="flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-xs font-semibold"
+          class="flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-1.5 text-xs font-semibold"
           :class="activeTab === 'menu' && menuMode === 'menu' ? 'bg-cta text-background shadow-lg shadow-black/20' : ' text-primary'"
           type="button"
           @click="(activeTab = 'menu'), (menuMode = 'menu')"
@@ -556,7 +554,7 @@ async function onTakePhotoChange(e: Event) {
         </button>
 
         <button
-          class="flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-xs font-semibold"
+          class="flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-1.5 text-xs font-semibold"
           :class="activeTab === 'menu' && menuMode === 'event' ? 'bg-cta text-background shadow-lg shadow-black/20' : ' text-primary'"
           type="button"
           @click="(activeTab = 'menu'), (menuMode = 'event')"
@@ -574,7 +572,7 @@ async function onTakePhotoChange(e: Event) {
 
         <button
           v-if="!isEmployee"
-          class="flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-xs font-semibold"
+          class="flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-1.5 text-xs font-semibold"
           :class="activeTab === 'resto' ? 'bg-cta text-background shadow-lg shadow-black/20' : ' text-primary'"
           type="button"
           @click="activeTab = 'resto'"

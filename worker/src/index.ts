@@ -49,6 +49,12 @@ type PermanentMenuItem = {
   createdAt: number
 }
 
+type EventItem = {
+  date: string // YYYY-MM-DD
+  objectKey: string
+  createdAt: number
+}
+
 type RestaurantPhotoItem = {
   id: string
   objectKey: string
@@ -64,6 +70,7 @@ type RestaurantRecord = {
   adminEmail?: string
   public: RestaurantPublic
   menus: MenuItem[]
+  event?: EventItem
   permanentMenu?: PermanentMenu
   permanentMenus?: PermanentMenuItem[]
   photos?: RestaurantPhotoItem[]
@@ -712,6 +719,36 @@ async function handle(req: Request, env: Env): Promise<Response> {
     return json({ objectKey, uploadUrl })
   }
 
+  if (url.pathname === '/api/event/presign-upload' && req.method === 'POST') {
+    const key = parseAuthKeyFromHeader(req)
+    if (!key) return json({ error: 'missing_auth' }, { status: 401 })
+
+    const auth = await authRestaurant(env, key)
+    if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
+
+    const body = await readJson<{ date?: string; contentType?: string }>(req)
+    const date = body.date ?? todayISO()
+    if (typeof date !== 'string' || date.length !== 10) return json({ error: 'invalid_date' }, { status: 400 })
+
+    const objectKey = `events/${auth.rec.id}/${date}.jpg`
+
+    const presignFn = (env.PRIVATE_MENUS as unknown as { createPresignedUrl?: Function }).createPresignedUrl
+    const uploadUrl =
+      typeof presignFn === 'function'
+        ? await (presignFn as (opts: unknown) => Promise<string>)({
+            method: 'PUT',
+            key: objectKey,
+            expiresIn: 60 * 5,
+            headers: body.contentType ? { 'content-type': body.contentType } : undefined
+          })
+        : null
+
+    auth.rec.event = { date, objectKey, createdAt: Date.now() }
+    await putRestaurant(env, auth.rec)
+
+    return json({ objectKey, uploadUrl })
+  }
+
   if (url.pathname === '/api/permanent-menu/presign-upload' && req.method === 'POST') {
     const key = parseAuthKeyFromHeader(req)
     if (!key) return json({ error: 'missing_auth' }, { status: 401 })
@@ -847,6 +884,23 @@ async function handle(req: Request, env: Env): Promise<Response> {
     })
   }
 
+  if (url.pathname === '/api/event' && req.method === 'GET') {
+    const key = parseAuthKeyFromHeader(req)
+    if (!key) return json({ error: 'missing_auth' }, { status: 401 })
+
+    const auth = await authRestaurant(env, key)
+    if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
+
+    const ev = auth.rec.event
+    if (!ev) return json({ id: auth.rec.id, event: null })
+    if (ev.date < todayISO()) return json({ id: auth.rec.id, event: null })
+
+    return json({
+      id: auth.rec.id,
+      event: { date: ev.date, createdAt: ev.createdAt }
+    })
+  }
+
   // Proxy upload fallback (when createPresignedUrl is unavailable)
   if (url.pathname === '/api/menu/upload' && req.method === 'PUT') {
     const key = parseAuthKeyFromHeader(req)
@@ -869,6 +923,32 @@ async function handle(req: Request, env: Env): Promise<Response> {
     const nextMenus = auth.rec.menus.filter((m) => m.date !== date)
     nextMenus.unshift({ date, objectKey, createdAt: Date.now() })
     auth.rec.menus = nextMenus.slice(0, 30)
+    await putRestaurant(env, auth.rec)
+
+    return json({ ok: true, objectKey })
+  }
+
+  // Proxy upload fallback (when createPresignedUrl is unavailable)
+  if (url.pathname === '/api/event/upload' && req.method === 'PUT') {
+    const key = parseAuthKeyFromHeader(req)
+    if (!key) return json({ error: 'missing_auth' }, { status: 401 })
+
+    const auth = await authRestaurant(env, key)
+    if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
+
+    const date = url.searchParams.get('date') ?? todayISO()
+    if (typeof date !== 'string' || date.length !== 10) return json({ error: 'invalid_date' }, { status: 400 })
+    const contentType = req.headers.get('content-type') ?? 'image/jpeg'
+
+    const objectKey = `events/${auth.rec.id}/${date}.jpg`
+    const body = req.body
+    if (!body) return json({ error: 'missing_body' }, { status: 400 })
+
+    await env.PRIVATE_MENUS.put(objectKey, body, {
+      httpMetadata: { contentType }
+    })
+
+    auth.rec.event = { date, objectKey, createdAt: Date.now() }
     await putRestaurant(env, auth.rec)
 
     return json({ ok: true, objectKey })
@@ -950,6 +1030,23 @@ async function handle(req: Request, env: Env): Promise<Response> {
     return json({ ok: true, deleted: true })
   }
 
+  if (url.pathname === '/api/event' && req.method === 'DELETE') {
+    const key = parseAuthKeyFromHeader(req)
+    if (!key) return json({ error: 'missing_auth' }, { status: 401 })
+
+    const auth = await authRestaurant(env, key)
+    if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
+
+    const ev = auth.rec.event
+    if (!ev) return json({ ok: true, deleted: false })
+
+    await env.PRIVATE_MENUS.delete(ev.objectKey)
+    auth.rec.event = undefined
+    await putRestaurant(env, auth.rec)
+
+    return json({ ok: true, deleted: true })
+  }
+
   if (url.pathname === '/api/restaurant-photos' && req.method === 'DELETE') {
     const key = parseAuthKeyFromHeader(req)
     if (!key) return json({ error: 'missing_auth' }, { status: 401 })
@@ -1007,10 +1104,47 @@ async function handle(req: Request, env: Env): Promise<Response> {
     return json({
       restaurant: rec.public,
       menus: rec.menus.slice(0, 3).map((m) => ({ date: m.date })),
+      event: rec.event && rec.event.date >= todayISO() ? { date: rec.event.date, createdAt: rec.event.createdAt } : null,
       permanentMenu: null,
       permanentMenus: permanentMenus.slice(0, 30).map((m) => ({ id: m.id, createdAt: m.createdAt })),
       photos: photos.slice(0, 30).map((p) => ({ id: p.id, createdAt: p.createdAt }))
     })
+  }
+
+  const eventMatch = url.pathname.match(/^\/api\/public\/([a-z0-9]+)\/event$/i)
+  if (eventMatch && req.method === 'GET') {
+    const id = eventMatch[1]
+    const rec = await getRestaurant(env, id)
+    if (!rec) return new Response('Not found', { status: 404 })
+
+    const ev = rec.event
+    if (!ev) return new Response('Not found', { status: 404 })
+    if (ev.date < todayISO()) return new Response('Not found', { status: 404 })
+
+    const presignFn = (env.PRIVATE_MENUS as unknown as { createPresignedUrl?: Function }).createPresignedUrl
+    if (typeof presignFn === 'function') {
+      const signed = await (presignFn as (opts: unknown) => Promise<string>)({
+        method: 'GET',
+        key: ev.objectKey,
+        expiresIn: 60
+      })
+
+      return new Response(null, {
+        status: 302,
+        headers: {
+          location: signed
+        }
+      })
+    }
+
+    const obj = await env.PRIVATE_MENUS.get(ev.objectKey)
+    if (!obj) return new Response('Not found', { status: 404 })
+
+    const headers = new Headers()
+    obj.writeHttpMetadata(headers)
+    headers.set('cache-control', 'public, max-age=60')
+
+    return new Response(obj.body, { status: 200, headers })
   }
 
   // Public image fetch: redirects to short-lived signed GET

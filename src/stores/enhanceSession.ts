@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 
-export type EnhanceTarget = 'menu' | 'permanent-menu' | 'restaurant-photo'
+export type EnhanceTarget = 'menu' | 'event' | 'permanent-menu' | 'restaurant-photo'
 
 type EnhanceSessionState = {
   file: File | null

@@ -32,6 +32,14 @@ const selectedDate = ref<string>(todayISO())
 const serverPreviewUrl = ref<string>('')
 const serverPreviewState = ref<'idle' | 'loading' | 'loaded' | 'missing'>('idle')
 
+const menuMode = ref<'menu' | 'event'>('menu')
+
+type EventItem = { date: string; createdAt: number }
+const eventItem = ref<EventItem | null>(null)
+const eventDate = ref<string>(todayISO())
+const eventPreviewUrl = ref<string>('')
+const eventPreviewState = ref<'idle' | 'loading' | 'loaded' | 'missing'>('idle')
+
 const restaurantName = ref<string>('')
 const restaurantAddress = ref<string>('')
 const restaurantCity = ref<string>('')
@@ -42,23 +50,26 @@ const menus = ref<MenuItem[]>([])
 
 const cameraInputEl = ref<HTMLInputElement | null>(null)
 
-function triggerCamera() {
+const takePhotoTarget = ref<'menu' | 'event'>('menu')
+
+function triggerCamera(target: 'menu' | 'event' = 'menu') {
+  takePhotoTarget.value = target
   cameraInputEl.value?.click()
 }
 
-const activeTab = ref<'menu' | 'resto' | 'compte'>('menu')
+const activeTab = ref<'menu' | 'resto'>('menu')
 const isEmployee = computed(() => auth.role === 'worker')
 
 onMounted(() => {
   const q = route.query.tab
-  if (q === 'menu' || q === 'resto' || q === 'compte') activeTab.value = q
+  if (q === 'menu' || q === 'resto') activeTab.value = q
   if (isEmployee.value) activeTab.value = 'menu'
 })
 
 watch(
   () => route.query.tab,
   (q) => {
-    if (q === 'menu' || q === 'resto' || q === 'compte') activeTab.value = q
+    if (q === 'menu' || q === 'resto') activeTab.value = q
     if (isEmployee.value) activeTab.value = 'menu'
   }
 )
@@ -135,7 +146,21 @@ onMounted(async () => {
     menus.value = []
   }
 
+  try {
+    if (auth.key) {
+      const res = await apiFetch<{ id: string; event: EventItem | null }>('/api/event', {
+        method: 'GET',
+        key: auth.key
+      })
+      eventItem.value = res.event
+      if (res.event?.date) eventDate.value = res.event.date
+    }
+  } catch {
+    eventItem.value = null
+  }
+
   refreshServerPreview()
+  refreshEventPreview()
 })
 
 function formatUpdatedAt(ts: number) {
@@ -162,13 +187,21 @@ function formatRelativeUpdatedAt(ts: number) {
   return formatUpdatedAt(ts)
 }
 
+function formatDayMonth(iso: string) {
+  const m = /^([0-9]{4})-([0-9]{2})-([0-9]{2})$/.exec(iso)
+  if (!m) return iso
+  return `${m[3]}/${m[2]}`
+}
+
 const selectedMenu = computed(() => menus.value.find((m) => m.date === selectedDate.value) ?? null)
 const lastUpdatedText = computed(() => (selectedMenu.value ? formatRelativeUpdatedAt(selectedMenu.value.createdAt) : '—'))
+const lastUpdatedEventText = computed(() => (eventItem.value ? formatRelativeUpdatedAt(eventItem.value.createdAt) : '—'))
+const todayDateText = computed(() => formatDayMonth(todayISO()))
 
 const activeTabTitle = computed(() => {
-  if (activeTab.value === 'menu') return 'Menu du jour'
+  if (activeTab.value === 'menu') return menuMode.value === 'event' ? 'Événement' : 'Menu du jour'
   if (activeTab.value === 'resto') return 'Mon resto'
-  return 'Compte'
+  return 'Mon resto'
 })
 
 const quickHistoryDates = computed(() => {
@@ -193,6 +226,16 @@ function refreshServerPreview() {
   }
   // cache-bust so newly uploaded images refresh immediately
   serverPreviewUrl.value = `${apiBase()}/api/public/${auth.id}/menu/${selectedDate.value}?t=${Date.now()}`
+}
+
+function refreshEventPreview() {
+  eventPreviewState.value = 'loading'
+  if (!auth.id) {
+    eventPreviewUrl.value = ''
+    eventPreviewState.value = 'idle'
+    return
+  }
+  eventPreviewUrl.value = `${apiBase()}/api/public/${auth.id}/event?t=${Date.now()}`
 }
 
 async function deleteMenuForDate() {
@@ -225,12 +268,39 @@ async function deleteMenuForDate() {
   }
 }
 
+async function deleteEvent() {
+  try {
+    if (!auth.key) throw new Error('missing_auth')
+    status.value = 'Deleting…'
+
+    await apiFetch<{ ok: boolean; deleted: boolean }>(`/api/event`, {
+      method: 'DELETE',
+      key: auth.key
+    })
+
+    if (previewUrl.value) {
+      URL.revokeObjectURL(previewUrl.value)
+      previewUrl.value = ''
+    }
+
+    eventItem.value = null
+    refreshEventPreview()
+    status.value = 'Deleted.'
+  } catch (err) {
+    status.value = err instanceof Error ? err.message : 'delete_error'
+  }
+}
+
 async function onTakePhotoChange(e: Event) {
   const input = e.target as HTMLInputElement
   const file = input.files?.[0]
   if (!file) return
 
-  enhanceSession.start(file, selectedDate.value)
+  if (takePhotoTarget.value === 'event') {
+    enhanceSession.start(file, eventDate.value, 'event', '/dashboard?tab=menu')
+  } else {
+    enhanceSession.start(file, selectedDate.value, 'menu', '/dashboard?tab=menu')
+  }
   await router.push('/enhance')
 
   input.value = ''
@@ -248,6 +318,86 @@ async function onTakePhotoChange(e: Event) {
     <div class="mt-6 flex flex-1 flex-col overflow-hidden">
       <div v-if="activeTab === 'menu'" class="flex flex-1 flex-col overflow-hidden pb-24">
         <div class="flex flex-1 min-h-0 flex-col gap-2 ">
+          <div v-if="menuMode === 'event'" class="grid gap-2">
+            <label class="grid gap-2">
+              <span class="text-sm text-primary/70">Date</span>
+              <input
+                v-model="eventDate"
+                class="rounded-xl bg-black/5 px-3 py-3 text-sm text-primary outline-none ring-1 ring-black/10 focus:ring-2 focus:ring-primary"
+                type="date"
+              />
+            </label>
+
+            <div class="flex min-h-0 flex-1 overflow-hidden rounded-2xl border border-black/10">
+              <img
+                v-if="eventItem"
+                v-show="eventPreviewState === 'loaded'"
+                class="h-full w-full object-contain"
+                :src="eventPreviewUrl"
+                alt="Photo de l'événement"
+                @load="eventPreviewState = 'loaded'"
+                @error="eventPreviewState = 'missing'"
+                @click="openViewer(eventPreviewUrl)"
+              />
+              <div v-if="!eventItem || eventPreviewState === 'loading'" class="flex flex-1 items-center justify-center p-4 text-sm text-primary/70">
+                {{ eventItem ? 'Chargement…' : "Pas d'événement." }}
+              </div>
+              <div v-else-if="eventPreviewState === 'missing'" class="flex flex-1 items-center justify-center p-4 text-sm text-primary/70">
+                Pas d'événement.
+              </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-3">
+              <div class="text-xs text-secondary/80">{{ lastUpdatedEventText }}</div>
+            </div>
+
+            <div class="mt-auto flex justify-center pt-2">
+              <button
+                class="inline-flex items-center justify-center rounded-full bg-cta px-4 py-3 text-sm font-semibold text-background shadow-lg shadow-black/20 hover:bg-cta/90"
+                type="button"
+                @click="eventItem ? deleteEvent() : triggerCamera('event')"
+                :aria-label="eventItem ? 'Supprimer l\'événement' : 'Ajouter un événement'"
+                :title="eventItem ? 'Supprimer l\'événement' : 'Ajouter un événement'"
+              >
+                <svg
+                  v-if="!eventItem"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  class="h-5 w-5"
+                >
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                  <circle cx="12" cy="13" r="4" />
+                </svg>
+                <svg
+                  v-else
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  class="h-5 w-5"
+                >
+                  <path d="M3 6h18" />
+                  <path d="M8 6V4h8v2" />
+                  <path d="M19 6l-1 14H6L5 6" />
+                  <path d="M10 11v6" />
+                  <path d="M14 11v6" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <div v-else class="flex flex-1 min-h-0 flex-col gap-2">
+          <div class="flex items-baseline justify-between">
+            <div class="text-sm font-semibold text-primary">
+              Aujourd'hui <span class="text-xs font-medium text-primary/70">{{ todayDateText }}</span>
+            </div>
+          </div>
           <div class="flex min-h-0 flex-1 overflow-hidden rounded-2xl border border-black/10">
             <img
               v-if="serverPreviewUrl"
@@ -310,6 +460,7 @@ async function onTakePhotoChange(e: Event) {
               </svg>
             </button>
           </div>
+          </div>
         </div>
       </div>
 
@@ -349,10 +500,7 @@ async function onTakePhotoChange(e: Event) {
             <path d="M9 18l6-6-6-6" />
           </svg>
         </button>
-      </div>
 
-      <div v-else class="grid gap-2 overflow-y-auto pb-24">
-        
         <button
           v-if="auth.isMaster"
           class="flex w-full items-center justify-between rounded-xl  px-4 py-3 text-left text-sm text-primary hover:bg-black/10"
@@ -372,7 +520,7 @@ async function onTakePhotoChange(e: Event) {
           </svg>
         </button>
 
-        <button class="flex w-full items-center justify-between rounded-xl     px-4 py-3 text-left text-sm text-primary hover:bg-black/10" type="button" @click="logout">
+        <button class="flex w-full items-center justify-between rounded-xl px-4 py-3 text-left text-sm text-primary hover:bg-black/10" type="button" @click="logout">
           <span>Déconnexion</span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-primary/60">
             <path d="M9 18l6-6-6-6" />
@@ -390,12 +538,12 @@ async function onTakePhotoChange(e: Event) {
       class="fixed inset-x-0 bottom-0 z-[70] border-t border-black/10 bg-background/95 px-4 py-3 backdrop-blur"
       style="padding-bottom: max(env(safe-area-inset-bottom), 12px)"
     >
-      <div class="mx-auto grid max-w-lg gap-3" :class="isEmployee ? 'grid-cols-1' : 'grid-cols-3'">
+      <div class="mx-auto grid max-w-lg gap-3" :class="isEmployee ? 'grid-cols-2' : 'grid-cols-3'">
         <button
           class="flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-xs font-semibold"
-          :class="activeTab === 'menu' ? 'bg-cta text-background shadow-lg shadow-black/20' : ' text-primary'"
+          :class="activeTab === 'menu' && menuMode === 'menu' ? 'bg-cta text-background shadow-lg shadow-black/20' : ' text-primary'"
           type="button"
-          @click="activeTab = 'menu'"
+          @click="(activeTab = 'menu'), (menuMode = 'menu')"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5">
             <path d="M8 3h8" />
@@ -406,6 +554,24 @@ async function onTakePhotoChange(e: Event) {
           </svg>
           <span>Menu du jour</span>
         </button>
+
+        <button
+          class="flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-xs font-semibold"
+          :class="activeTab === 'menu' && menuMode === 'event' ? 'bg-cta text-background shadow-lg shadow-black/20' : ' text-primary'"
+          type="button"
+          @click="(activeTab = 'menu'), (menuMode = 'event')"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5">
+            <path d="M6 2v4" />
+            <path d="M18 2v4" />
+            <path d="M3 8h18" />
+            <path d="M4 6h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1z" />
+            <path d="M8 12h8" />
+            <path d="M8 16h6" />
+          </svg>
+          <span>Événement</span>
+        </button>
+
         <button
           v-if="!isEmployee"
           class="flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-xs font-semibold"
@@ -419,19 +585,6 @@ async function onTakePhotoChange(e: Event) {
             <path d="M9 20v-6h6v6" />
           </svg>
           <span>Mon resto</span>
-        </button>
-        <button
-          v-if="!isEmployee"
-          class="flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-xs font-semibold"
-          :class="activeTab === 'compte' ? 'bg-cta text-background shadow-lg shadow-black/20' : ' text-primary'"
-          type="button"
-          @click="activeTab = 'compte'"
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-            <path d="M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />
-          </svg>
-          <span>Compte</span>
         </button>
       </div>
     </div>

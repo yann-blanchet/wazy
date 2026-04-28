@@ -209,6 +209,40 @@ async function save() {
     return
   }
 
+  if (session.target === 'event') {
+    const contentType = 'image/jpeg'
+    const presign = await apiFetch<{ objectKey: string; uploadUrl: string | null }>(
+      '/api/event/presign-upload',
+      {
+        method: 'POST',
+        key: auth.key,
+        body: { date: chosenDate.value, contentType }
+      }
+    )
+
+    const putRes = presign.uploadUrl
+      ? await fetch(presign.uploadUrl, {
+          method: 'PUT',
+          headers: { 'content-type': contentType },
+          body: enhancedBlob.value
+        })
+      : await fetch(`${apiBaseUrl()}/api/event/upload?date=${encodeURIComponent(chosenDate.value)}`, {
+          method: 'PUT',
+          headers: {
+            authorization: `Bearer ${auth.key}`,
+            'content-type': contentType
+          },
+          body: enhancedBlob.value
+        })
+
+    if (!putRes.ok) throw new Error(`upload_failed_${putRes.status}`)
+
+    const back = session.returnTo || '/dashboard'
+    session.clear()
+    await router.push(back)
+    return
+  }
+
   const contentType = 'image/jpeg'
   if (session.target === 'permanent-menu') {
     const presign = await apiFetch<{ id: string; objectKey: string; uploadUrl: string | null }>(
@@ -289,7 +323,7 @@ onMounted(async () => {
     return
   }
 
-  chosenDate.value = session.target === 'menu' ? (session.defaultDate || todayISO()) : ''
+  chosenDate.value = session.target === 'menu' || session.target === 'event' ? (session.defaultDate || todayISO()) : ''
   await recompute()
 })
 </script>
@@ -346,14 +380,14 @@ onMounted(async () => {
             {{ showAdjust ? 'Hide' : 'Adjust' }}
           </button>
 
-          <div v-if="session.target === 'menu'" class="flex flex-wrap gap-2">
+          <div v-if="session.target === 'menu' || session.target === 'event'" class="flex flex-wrap gap-2">
             <button
               class="rounded-full px-3 py-2 text-xs ring-1 ring-black/10"
               :class="chosenDate === todayISO() ? 'bg-emerald-500/20 text-emerald-200 ring-emerald-400/30' : 'bg-black/5 text-primary hover:bg-black/10'"
-              :disabled="busy"
+              type="button"
               @click="chosenDate = todayISO()"
             >
-              Aujourd'hui
+              Today
             </button>
             <button
               class="rounded-full px-3 py-2 text-xs ring-1 ring-black/10"
@@ -431,12 +465,12 @@ onMounted(async () => {
             </button>
           </div>
 
-          <label v-if="session.target === 'menu'" class="grid gap-2">
+          <label v-if="session.target === 'menu' || session.target === 'event'" class="grid gap-2">
             <span class="text-sm text-primary/70">Date</span>
             <input
               v-model="chosenDate"
+              class="rounded-xl bg-black/5 px-3 py-3 text-sm text-primary outline-none ring-1 ring-black/10 focus:ring-2 focus:ring-primary"
               type="date"
-              class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 text-sm outline-none focus:border-emerald-400/60"
             />
           </label>
         </div>
@@ -453,8 +487,8 @@ onMounted(async () => {
             Annuler
           </button>
           <button
-            class="w-full rounded-xl bg-primary px-4 py-3 text-sm font-medium text-background hover:bg-primary/90"
-            :disabled="busy || cropMode || (session.target === 'menu' && chosenDate.length === 0)"
+            class="w-full rounded-xl bg-cta px-4 py-3 text-sm font-medium text-background hover:bg-cta/90"
+            :disabled="busy || cropMode || ((session.target === 'menu' || session.target === 'event') && chosenDate.length === 0)"
             @click="save"
           >
             Enregistrer

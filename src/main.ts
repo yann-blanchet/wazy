@@ -29,13 +29,11 @@ router.beforeEach((to) => {
 
   if (
     to.path === '/dashboard' ||
-    to.path === '/recup-admin' ||
     to.path === '/qr-access' ||
     to.path === '/infos' ||
     to.path === '/carte' ||
     to.path === '/galerie' ||
     to.path === '/lien-public' ||
-    to.path === '/equipe' ||
     to.path === '/stats' ||
     to.path === '/logout' ||
     to.path === '/settings' ||

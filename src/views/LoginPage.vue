@@ -3,6 +3,7 @@ import { computed, ref, watchEffect } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { apiFetch } from '../lib/api'
+import * as QRCode from 'qrcode'
 
 const route = useRoute()
 const router = useRouter()
@@ -46,6 +47,36 @@ watchEffect(() => {
 })
 
 const masterKeyShown = ref<string | null>(null)
+const ownerQrUrl = ref<string>('')
+const ownerQrSvg = ref<string>('')
+const ownerQrToken = ref<string>('')
+
+async function generateOwnerQr(masterKey: string) {
+  const res = await apiFetch<{ token: string; url: string }>('/api/qr/create', {
+    method: 'POST',
+    key: masterKey,
+    body: { role: 'master' }
+  })
+
+  ownerQrUrl.value = res.url
+  ownerQrToken.value = res.token
+  ownerQrSvg.value = (await (QRCode as unknown as { toString: (text: string, opts: unknown) => Promise<string> }).toString(res.url, {
+    type: 'svg',
+    margin: 1,
+    width: 240
+  }))
+}
+
+async function copyOwnerQrUrl() {
+  if (!ownerQrUrl.value) return
+  await navigator.clipboard.writeText(ownerQrUrl.value)
+}
+
+async function loginWithOwnerQr() {
+  if (!ownerQrToken.value) return
+  await auth.loginWithQrToken(ownerQrToken.value)
+  await router.push({ path: '/onboarding' })
+}
 
 async function useMasterKeyToLogin() {
   if (!masterKeyShown.value) return
@@ -58,8 +89,12 @@ async function useMasterKeyToLogin() {
 async function createAccount() {
   createError.value = ''
   try {
+    ownerQrUrl.value = ''
+    ownerQrSvg.value = ''
+    ownerQrToken.value = ''
     const res = desiredId.value.trim().length > 0 ? await auth.createAccountWithId(desiredId.value) : await auth.createAccount()
     masterKeyShown.value = res.masterKey
+    await generateOwnerQr(res.masterKey)
   } catch (e) {
     createError.value = e instanceof Error ? e.message : 'create_error'
   }
@@ -77,7 +112,7 @@ function setMode(m: 'login' | 'create') {
 
 <template>
   <main class="mx-auto max-w-lg p-6">
-    <h1 class="text-3xl font-semibold tracking-tight">titre menu</h1>
+    <h1 class="text-3xl font-semibold tracking-tight">WAZY</h1>
     <p class="mt-2 text-primary/70">Publiez le menu du jour avec une seule photo.</p>
 
 
@@ -119,6 +154,19 @@ function setMode(m: 'login' | 'create') {
           >
             Se connecter avec cette clé
           </button>
+
+          <div v-if="ownerQrUrl" class="mt-4 grid gap-3">
+            <div class="text-sm text-primary/70">QR owner (connexion) :</div>
+            <div class="rounded-xl bg-white p-4" v-html="ownerQrSvg" />
+            <div class="rounded-xl bg-black/5 p-3">
+              <div class="text-xs text-primary/70">Lien :</div>
+              <div class="mt-1 break-all font-mono text-xs text-primary">{{ ownerQrUrl }}</div>
+              <div class="mt-3 flex gap-2">
+                <button class="rounded-lg bg-black/10 px-3 py-2 text-sm hover:bg-black/15" type="button" @click="copyOwnerQrUrl">Copier le lien</button>
+                <button class="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-background hover:bg-primary/90" type="button" @click="loginWithOwnerQr">Se connecter sur cet appareil</button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

@@ -323,27 +323,13 @@ async function onTakePhotoChange(e: Event) {
 
       <div v-else class="grid gap-2 overflow-y-auto pb-24">
         
-        <button class="flex w-full items-center justify-between rounded-xl bg-black/5 px-4 py-3 text-left text-sm text-primary hover:bg-black/10" type="button" @click="go('/recup-admin')">
-          <span>Admin (email + récupération)</span>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-primary/60">
-            <path d="M9 18l6-6-6-6" />
-          </svg>
-        </button>
-
         <button
           v-if="auth.isMaster"
           class="flex w-full items-center justify-between rounded-xl bg-black/5 px-4 py-3 text-left text-sm text-primary hover:bg-black/10"
           type="button"
           @click="go('/qr-access')"
         >
-          <span>Accès QR employés</span>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-primary/60">
-            <path d="M9 18l6-6-6-6" />
-          </svg>
-        </button>
-
-        <button class="flex w-full items-center justify-between rounded-xl bg-black/5 px-4 py-3 text-left text-sm text-primary hover:bg-black/10" type="button" @click="go('/equipe')">
-          <span>Équipe</span>
+          <span>Accès QR</span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-primary/60">
             <path d="M9 18l6-6-6-6" />
           </svg>

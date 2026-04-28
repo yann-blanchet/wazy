@@ -248,11 +248,7 @@ async function onTakePhotoChange(e: Event) {
     <div class="mt-6 flex flex-1 flex-col overflow-hidden">
       <div v-if="activeTab === 'menu'" class="flex flex-1 flex-col overflow-hidden pb-24">
         <div class="flex flex-1 min-h-0 flex-col gap-2 ">
-          <div class="flex items-center justify-end gap-3">
-            <div class="text-xs text-secondary/80">{{ lastUpdatedText }}</div>
-          </div>
-
-          <div class="flex min-h-0 flex-1 overflow-hidden rounded-2xl bg-black/10">
+          <div class="flex min-h-0 flex-1 overflow-hidden rounded-2xl border border-black/10">
             <img
               v-if="serverPreviewUrl"
               v-show="serverPreviewState === 'loaded'"
@@ -271,13 +267,47 @@ async function onTakePhotoChange(e: Event) {
             </div>
           </div>
 
-          <div class="mt-auto pt-2">
+          <div class="flex items-center justify-end gap-3">
+            <div class="text-xs text-secondary/80">{{ lastUpdatedText }}</div>
+          </div>
+
+          <div class="mt-auto flex justify-center pt-2">
             <button
-              class="w-full rounded-xl bg-cta px-4 py-3 text-sm font-semibold text-background shadow-lg shadow-black/20 hover:bg-cta/90"
+              class="inline-flex items-center justify-center rounded-full bg-cta px-4 py-3 text-sm font-semibold text-background shadow-lg shadow-black/20 hover:bg-cta/90"
               type="button"
               @click="selectedMenu ? deleteMenuForDate() : triggerCamera()"
+              :aria-label="selectedMenu ? 'Dépublier le menu du jour' : 'Publier le menu du jour'"
+              :title="selectedMenu ? 'Dépublier le menu du jour' : 'Publier le menu du jour'"
             >
-              {{ selectedMenu ? 'Dépublier le menu du jour' : 'Publier le menu du jour' }}
+              <svg
+                v-if="!selectedMenu"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="h-5 w-5"
+              >
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                <circle cx="12" cy="13" r="4" />
+              </svg>
+              <svg
+                v-else
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="h-5 w-5"
+              >
+                <path d="M3 6h18" />
+                <path d="M8 6V4h8v2" />
+                <path d="M19 6l-1 14H6L5 6" />
+                <path d="M10 11v6" />
+                <path d="M14 11v6" />
+              </svg>
             </button>
           </div>
         </div>

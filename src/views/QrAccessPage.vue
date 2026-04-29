@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import * as QRCode from 'qrcode'
 import { apiFetch } from '../lib/api'
@@ -11,6 +11,7 @@ type QrLinkMeta = {
   tokenHash: string
   role: Role
   createdAt: number
+  url?: string
 }
 
 const router = useRouter()
@@ -19,8 +20,30 @@ const auth = useAuthStore()
 const status = ref<string>('')
 const items = ref<QrLinkMeta[]>([])
 
+const activeSvgs = ref<Record<string, string>>({})
+
 const lastCreatedUrl = ref<string>('')
 const lastCreatedSvg = ref<string>('')
+
+const workerLink = computed(() => items.value.find((it) => it.role === 'worker') ?? null)
+const masterLink = computed(() => items.value.find((it) => it.role === 'master') ?? null)
+
+async function computeActiveSvgs(nextItems: QrLinkMeta[]) {
+  const next: Record<string, string> = {}
+  for (const it of nextItems) {
+    if (!it.url) continue
+    try {
+      next[it.tokenHash] = await (QRCode as unknown as { toString: (text: string, opts: unknown) => Promise<string> }).toString(it.url, {
+        type: 'svg',
+        margin: 1,
+        width: 200
+      })
+    } catch {
+      // ignore per-item failures
+    }
+  }
+  activeSvgs.value = next
+}
 
 function formatDate(ts: number) {
   const d = new Date(ts)
@@ -40,11 +63,22 @@ async function refresh() {
     status.value = 'Chargement…'
     const res = await apiFetch<{ items: QrLinkMeta[] }>('/api/qr/list', { method: 'GET', key: auth.key })
     items.value = Array.isArray(res.items) ? res.items : []
+
+    await computeActiveSvgs(items.value)
+
     status.value = ''
   } catch (e) {
     status.value = e instanceof Error ? e.message : 'load_failed'
   }
 }
+
+watch(
+  items,
+  async (next) => {
+    await computeActiveSvgs(next)
+  },
+  { deep: true }
+)
 
 async function createEmployeeQr() {
   try {
@@ -67,7 +101,7 @@ async function createEmployeeQr() {
     }))
 
     await refresh()
-    status.value = 'QR employé créé.'
+    status.value = 'QR employé mis à jour.'
   } catch (e) {
     status.value = e instanceof Error ? e.message : 'create_failed'
   }
@@ -94,25 +128,9 @@ async function createOwnerQr() {
     }))
 
     await refresh()
-    status.value = 'QR owner créé.'
+    status.value = 'QR admin mis à jour.'
   } catch (e) {
     status.value = e instanceof Error ? e.message : 'create_failed'
-  }
-}
-
-async function revoke(tokenHash: string) {
-  try {
-    if (!auth.key) throw new Error('missing_auth')
-    status.value = 'Suppression…'
-    await apiFetch<{ ok: boolean }>('/api/qr/revoke', {
-      method: 'POST',
-      key: auth.key,
-      body: { tokenHash }
-    })
-    await refresh()
-    status.value = 'Supprimé.'
-  } catch (e) {
-    status.value = e instanceof Error ? e.message : 'revoke_failed'
   }
 }
 
@@ -139,17 +157,7 @@ onMounted(async () => {
 
     <template v-else>
       <section class="mt-6 rounded-2xl bg-black/5 p-5">
-        <div class="flex items-center justify-between gap-3">
-          <h2 class="text-lg font-semibold text-primary">QR employés</h2>
-          <div class="flex gap-2">
-            <button class="rounded-xl bg-black/10 px-4 py-3 text-sm font-semibold text-primary hover:bg-black/15" type="button" @click="createOwnerQr">
-              Générer owner
-            </button>
-            <button class="rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-background hover:bg-primary/90" type="button" @click="createEmployeeQr">
-              Générer employé
-            </button>
-          </div>
-        </div>
+        <h2 class="text-lg font-semibold text-primary">QR codes</h2>
 
         <div v-if="lastCreatedUrl" class="mt-4 grid gap-3">
           <div class="rounded-xl bg-black/10 p-3">
@@ -171,17 +179,45 @@ onMounted(async () => {
       <section class="mt-4 rounded-2xl bg-black/5 p-5">
         <h2 class="text-lg font-semibold text-primary">QR actifs</h2>
 
-        <div v-if="items.length === 0" class="mt-3 text-sm text-primary/70">Aucun QR actif.</div>
-
-        <div v-else class="mt-3 grid gap-2">
-          <div v-for="it in items" :key="it.tokenHash" class="flex items-center justify-between rounded-xl bg-black/10 px-4 py-3">
-            <div class="min-w-0">
-              <div class="truncate text-sm font-semibold text-primary">{{ it.role === 'worker' ? 'Employé' : 'Owner' }}</div>
-              <div class="text-xs text-primary/70">Créé: {{ formatDate(it.createdAt) }}</div>
+        <div class="mt-3 grid gap-3">
+          <div class="rounded-xl bg-black/10 p-4">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <div class="text-sm font-semibold text-primary">Employés</div>
+                <div v-if="workerLink" class="text-xs text-primary/70">Créé: {{ formatDate(workerLink.createdAt) }}</div>
+                <div v-else class="text-xs text-primary/70">Aucun QR</div>
+              </div>
+              <button class="rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-background hover:bg-primary/90" type="button" @click="createEmployeeQr">
+                Régénérer
+              </button>
             </div>
-            <button class="rounded-lg bg-black/10 px-3 py-2 text-sm text-primary hover:bg-black/15" type="button" @click="revoke(it.tokenHash)">
-              Supprimer
-            </button>
+
+            <div v-if="workerLink?.url" class="mt-3 grid gap-3">
+              <div class="break-all font-mono text-[11px] text-primary/60">{{ workerLink.url }}</div>
+              <div v-if="activeSvgs[workerLink.tokenHash]" class="rounded-xl bg-white p-3" v-html="activeSvgs[workerLink.tokenHash]" />
+              <div v-else class="rounded-xl bg-white p-3 text-xs text-primary/60 ring-1 ring-black/10">QR non chargé.</div>
+            </div>
+            <div v-else-if="workerLink" class="mt-3 text-xs text-primary/60">Lien manquant: clique sur Régénérer.</div>
+          </div>
+
+          <div class="rounded-xl bg-black/10 p-4">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <div class="text-sm font-semibold text-primary">Admin</div>
+                <div v-if="masterLink" class="text-xs text-primary/70">Créé: {{ formatDate(masterLink.createdAt) }}</div>
+                <div v-else class="text-xs text-primary/70">Aucun QR</div>
+              </div>
+              <button class="rounded-xl bg-black/10 px-4 py-3 text-sm font-semibold text-primary hover:bg-black/15" type="button" @click="createOwnerQr">
+                Régénérer
+              </button>
+            </div>
+
+            <div v-if="masterLink?.url" class="mt-3 grid gap-3">
+              <div class="break-all font-mono text-[11px] text-primary/60">{{ masterLink.url }}</div>
+              <div v-if="activeSvgs[masterLink.tokenHash]" class="rounded-xl bg-white p-3" v-html="activeSvgs[masterLink.tokenHash]" />
+              <div v-else class="rounded-xl bg-white p-3 text-xs text-primary/60 ring-1 ring-black/10">QR non chargé.</div>
+            </div>
+            <div v-else-if="masterLink" class="mt-3 text-xs text-primary/60">Lien manquant: clique sur Régénérer.</div>
           </div>
         </div>
       </section>

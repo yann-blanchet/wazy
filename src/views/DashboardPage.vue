@@ -45,6 +45,15 @@ const restaurantAddress = ref<string>('')
 const restaurantCity = ref<string>('')
 const restaurantCuisineType = ref<string>('')
 
+type Role = 'master' | 'worker'
+type QrLinkMeta = {
+  tokenHash: string
+  role: Role
+  createdAt: number
+}
+
+const qrActiveCount = ref<number>(0)
+
 type MenuItem = { date: string; createdAt: number }
 const menus = ref<MenuItem[]>([])
 
@@ -168,6 +177,17 @@ onMounted(async () => {
     }
   } catch {
     eventItem.value = null
+  }
+
+  try {
+    if (auth.key && auth.isMaster) {
+      const res = await apiFetch<{ items: QrLinkMeta[] }>('/api/qr/list', { method: 'GET', key: auth.key })
+      qrActiveCount.value = Array.isArray(res.items) ? res.items.length : 0
+    } else {
+      qrActiveCount.value = 0
+    }
+  } catch {
+    qrActiveCount.value = 0
   }
 
   refreshServerPreview()
@@ -571,7 +591,10 @@ async function onTakePhotoChange(e: Event) {
           type="button"
           @click="go('/qr-access')"
         >
-          <span>Accès QR</span>
+          <div class="min-w-0">
+            <div class="text-sm text-primary">Accès QR</div>
+            <div class="mt-0.5 text-xs text-primary/60">{{ qrActiveCount }} actif(s)</div>
+          </div>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-primary/60">
             <path d="M9 18l6-6-6-6" />
           </svg>

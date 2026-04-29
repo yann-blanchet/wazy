@@ -81,6 +81,7 @@ type QrLinkMeta = {
   tokenHash: string
   role: Role
   createdAt: number
+  url?: string
 }
 
 type QrTokenRecord = {
@@ -493,7 +494,42 @@ async function handle(req: Request, env: Env): Promise<Response> {
     if (auth.role !== 'master') return json({ error: 'forbidden' }, { status: 403 })
 
     const list = normalizeQrLinks(auth.rec)
-    return json({ items: list })
+
+    let mutated = false
+    for (const it of list) {
+      if (it.url) continue
+
+      const raw = await env.RESTAURANTS.get(`qr:${it.tokenHash}`)
+      if (!raw) continue
+      const tokenRec = JSON.parse(raw) as QrTokenRecord
+      if (!tokenRec?.id || !tokenRec?.role || !tokenRec?.key) continue
+      if (tokenRec.id !== auth.rec.id) continue
+      if (tokenRec.role !== it.role) continue
+
+      const token = randomHex(32)
+      const tokenHash = await sha256Hex(`qr:${token}`)
+      const origin = env.APP_ORIGIN.replace(/\/+$/, '')
+      const nextUrl = `${origin}/auth?t=${encodeURIComponent(token)}`
+
+      await env.RESTAURANTS.put(`qr:${tokenHash}`, JSON.stringify(tokenRec))
+      await env.RESTAURANTS.delete(`qr:${it.tokenHash}`)
+
+      it.tokenHash = tokenHash
+      it.url = nextUrl
+      mutated = true
+    }
+
+    if (mutated) {
+      await putRestaurant(env, auth.rec)
+    }
+
+    const byRole = new Map<Role, QrLinkMeta>()
+    for (const it of list) {
+      const prev = byRole.get(it.role)
+      if (!prev || it.createdAt > prev.createdAt) byRole.set(it.role, it)
+    }
+    const out = Array.from(byRole.values()).sort((a, b) => b.createdAt - a.createdAt)
+    return json({ items: out })
   }
 
   if (url.pathname === '/api/qr/create' && req.method === 'POST') {
@@ -506,6 +542,26 @@ async function handle(req: Request, env: Env): Promise<Response> {
 
     const body = await readJsonOptional<{ role?: Role }>(req)
     const role: Role = body?.role === 'master' || body?.role === 'worker' ? body.role : 'worker'
+
+    const links = normalizeQrLinks(auth.rec)
+
+    for (const existing of links.filter((l) => l.role === role)) {
+      const raw = await env.RESTAURANTS.get(`qr:${existing.tokenHash}`)
+      if (raw) {
+        const tokenRec = JSON.parse(raw) as QrTokenRecord
+        if (tokenRec?.key && tokenRec?.id === auth.rec.id) {
+          await deleteKeyIndex(env, tokenRec.key)
+          const ownerKeys = normalizeOwnerKeys(auth.rec)
+          const employeeKeys = normalizeEmployeeKeys(auth.rec)
+          ;(auth.rec as unknown as { ownerKeys?: string[] }).ownerKeys = ownerKeys.filter((k) => k !== tokenRec.key)
+          ;(auth.rec as unknown as { employeeKeys?: string[] }).employeeKeys = employeeKeys.filter((k) => k !== tokenRec.key)
+        }
+        await env.RESTAURANTS.delete(`qr:${existing.tokenHash}`)
+      }
+    }
+
+    const nextLinks = links.filter((l) => l.role !== role)
+    ;(auth.rec as unknown as { qrLinks?: QrLinkMeta[] }).qrLinks = nextLinks
 
     let nextKey: string | null = null
     const prefix = role === 'master' ? 'msr' : 'wkr'
@@ -538,14 +594,15 @@ async function handle(req: Request, env: Env): Promise<Response> {
       if (!employeeKeys.includes(nextKey)) employeeKeys.push(nextKey)
     }
 
-    const links = normalizeQrLinks(auth.rec)
-    links.push({ tokenHash, role, createdAt: tokenRec.createdAt })
-    await putRestaurant(env, auth.rec)
-
     await putKeyIndex(env, nextKey, { id: auth.rec.id, role })
 
     const origin = env.APP_ORIGIN.replace(/\/+$/, '')
     const url = `${origin}/auth?t=${encodeURIComponent(token)}`
+
+    const linkMeta: QrLinkMeta = { tokenHash, role, createdAt: tokenRec.createdAt, url }
+    nextLinks.push(linkMeta)
+    await putRestaurant(env, auth.rec)
+
     return json({ token, url, tokenHash, role })
   }
 

@@ -548,14 +548,6 @@ async function handle(req: Request, env: Env): Promise<Response> {
     for (const existing of links.filter((l) => l.role === role)) {
       const raw = await env.RESTAURANTS.get(`qr:${existing.tokenHash}`)
       if (raw) {
-        const tokenRec = JSON.parse(raw) as QrTokenRecord
-        if (tokenRec?.key && tokenRec?.id === auth.rec.id) {
-          await deleteKeyIndex(env, tokenRec.key)
-          const ownerKeys = normalizeOwnerKeys(auth.rec)
-          const employeeKeys = normalizeEmployeeKeys(auth.rec)
-          ;(auth.rec as unknown as { ownerKeys?: string[] }).ownerKeys = ownerKeys.filter((k) => k !== tokenRec.key)
-          ;(auth.rec as unknown as { employeeKeys?: string[] }).employeeKeys = employeeKeys.filter((k) => k !== tokenRec.key)
-        }
         await env.RESTAURANTS.delete(`qr:${existing.tokenHash}`)
       }
     }
@@ -563,17 +555,8 @@ async function handle(req: Request, env: Env): Promise<Response> {
     const nextLinks = links.filter((l) => l.role !== role)
     ;(auth.rec as unknown as { qrLinks?: QrLinkMeta[] }).qrLinks = nextLinks
 
-    let nextKey: string | null = null
-    const prefix = role === 'master' ? 'msr' : 'wkr'
-    for (let i = 0; i < 10; i++) {
-      const candidate = randomKey(prefix)
-      const existing = await getKeyIndex(env, candidate)
-      if (!existing) {
-        nextKey = candidate
-        break
-      }
-    }
-    if (!nextKey) return json({ error: 'key_generation_failed' }, { status: 500 })
+    const baseKey = role === 'master' ? auth.rec.masterKey : auth.rec.workerKey
+    if (!baseKey) return json({ error: 'key_missing' }, { status: 500 })
 
     const token = randomHex(32)
     const tokenHash = await sha256Hex(`qr:${token}`)
@@ -581,20 +564,10 @@ async function handle(req: Request, env: Env): Promise<Response> {
     const tokenRec: QrTokenRecord = {
       id: auth.rec.id,
       role,
-      key: nextKey,
+      key: baseKey,
       createdAt: Date.now()
     }
     await env.RESTAURANTS.put(`qr:${tokenHash}`, JSON.stringify(tokenRec))
-
-    if (role === 'master') {
-      const ownerKeys = normalizeOwnerKeys(auth.rec)
-      if (!ownerKeys.includes(nextKey)) ownerKeys.push(nextKey)
-    } else {
-      const employeeKeys = normalizeEmployeeKeys(auth.rec)
-      if (!employeeKeys.includes(nextKey)) employeeKeys.push(nextKey)
-    }
-
-    await putKeyIndex(env, nextKey, { id: auth.rec.id, role })
 
     const origin = env.APP_ORIGIN.replace(/\/+$/, '')
     const url = `${origin}/auth?t=${encodeURIComponent(token)}`
@@ -620,14 +593,6 @@ async function handle(req: Request, env: Env): Promise<Response> {
 
     const raw = await env.RESTAURANTS.get(`qr:${tokenHash}`)
     if (raw) {
-      const tokenRec = JSON.parse(raw) as QrTokenRecord
-      if (tokenRec?.key && tokenRec?.id === auth.rec.id) {
-        await deleteKeyIndex(env, tokenRec.key)
-        const ownerKeys = normalizeOwnerKeys(auth.rec)
-        const employeeKeys = normalizeEmployeeKeys(auth.rec)
-        ;(auth.rec as unknown as { ownerKeys?: string[] }).ownerKeys = ownerKeys.filter((k) => k !== tokenRec.key)
-        ;(auth.rec as unknown as { employeeKeys?: string[] }).employeeKeys = employeeKeys.filter((k) => k !== tokenRec.key)
-      }
       await env.RESTAURANTS.delete(`qr:${tokenHash}`)
     }
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watchEffect } from 'vue'
+import { computed, onBeforeUnmount, ref, watchEffect } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { apiFetch } from '../lib/api'
@@ -21,6 +21,101 @@ const createError = ref('')
 const recoveryDisabled = true
 
 const autoLoginTried = ref(false)
+
+const qrScannerOpen = ref(false)
+const qrScannerError = ref<string>('')
+const videoEl = ref<HTMLVideoElement | null>(null)
+let scanStream: MediaStream | null = null
+let scanTimer: number | null = null
+const showManualCode = ref(false)
+
+const canScanQr = computed(() => {
+  const w = window as unknown as { BarcodeDetector?: unknown }
+  return typeof w.BarcodeDetector === 'function'
+})
+
+async function stopQrScan() {
+  if (scanTimer !== null) {
+    window.clearTimeout(scanTimer)
+    scanTimer = null
+  }
+  if (scanStream) {
+    for (const t of scanStream.getTracks()) t.stop()
+    scanStream = null
+  }
+  if (videoEl.value) {
+    videoEl.value.srcObject = null
+  }
+}
+
+async function startQrScan() {
+  qrScannerError.value = ''
+  if (!canScanQr.value) {
+    qrScannerError.value = 'Scan QR non supporté sur cet appareil.'
+    return
+  }
+
+  qrScannerOpen.value = true
+  await stopQrScan()
+
+  try {
+    scanStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' } },
+      audio: false
+    })
+
+    if (!videoEl.value) throw new Error('missing_video')
+    videoEl.value.srcObject = scanStream
+    await videoEl.value.play()
+
+    const w = window as unknown as { BarcodeDetector: new (opts: { formats: string[] }) => { detect: (v: HTMLVideoElement) => Promise<Array<{ rawValue?: string }>> } }
+    const detector = new w.BarcodeDetector({ formats: ['qr_code'] })
+
+    const tick = async () => {
+      try {
+        if (!qrScannerOpen.value || !videoEl.value) return
+        const codes = await detector.detect(videoEl.value)
+        const raw = codes?.[0]?.rawValue
+        if (raw && typeof raw === 'string') {
+          let token = ''
+          try {
+            const u = new URL(raw)
+            token = u.searchParams.get('t') ?? ''
+          } catch {
+            // allow plain token
+            token = raw
+          }
+
+          token = token.trim()
+          if (token) {
+            await stopQrScan()
+            qrScannerOpen.value = false
+            await router.replace({ path: '/auth', query: { t: token } })
+            return
+          }
+        }
+      } catch {
+        // ignore frame errors
+      }
+      scanTimer = window.setTimeout(tick, 250)
+    }
+
+    tick()
+  } catch (e) {
+    qrScannerError.value = e instanceof Error ? e.message : 'camera_error'
+    await stopQrScan()
+    qrScannerOpen.value = false
+  }
+}
+
+async function closeQrScan() {
+  qrScannerOpen.value = false
+  await stopQrScan()
+}
+
+onBeforeUnmount(() => {
+  stopQrScan()
+})
 
 watchEffect(() => {
   const qKey = route.query.key
@@ -171,25 +266,54 @@ function setMode(m: 'login' | 'create') {
       </div>
 
       <div v-else class="mt-6 grid gap-3">
-        <label class="grid gap-2">
-          
-          <input
-            v-model="key"
-            class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 font-mono text-base text-primary outline-none focus:border-primary/60"
-            placeholder="code"
-            autocomplete="off"
-            autocapitalize="off"
-            spellcheck="false"
-          />
-        </label>
+        <button
+          v-if="canScanQr"
+          class="flex w-full items-center justify-center gap-3 rounded-2xl bg-primary px-4 py-4 text-base font-semibold text-background shadow-lg shadow-black/20 hover:bg-primary/90"
+          type="button"
+          @click="startQrScan"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6">
+            <path d="M3 7V5a2 2 0 0 1 2-2h2" />
+            <path d="M17 3h2a2 2 0 0 1 2 2v2" />
+            <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
+            <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
+            <path d="M7 8h10" />
+            <path d="M7 12h10" />
+            <path d="M7 16h10" />
+          </svg>
+          Scanner le QR de connexion
+        </button>
+
+        <div v-else class="rounded-xl bg-black/5 p-4 text-sm text-primary/70">Le scan QR n'est pas supporté sur cet appareil. Ouvre le lien du QR dans le navigateur.</div>
 
         <button
-          class="rounded-xl bg-black/10 px-4 py-3 hover:bg-black/15"
-          :disabled="key.length === 0"
-          @click="login"
+          class="rounded-xl bg-black/10 px-4 py-3 text-left text-sm text-primary hover:bg-black/15"
+          type="button"
+          @click="showManualCode = !showManualCode"
         >
-          Connexion
+          {{ showManualCode ? 'Masquer' : 'Utiliser un code' }}
         </button>
+
+        <div v-if="showManualCode" class="grid gap-3 rounded-2xl bg-black/5 p-4">
+          <label class="grid gap-2">
+            <input
+              v-model="key"
+              class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 font-mono text-base text-primary outline-none focus:border-primary/60"
+              placeholder="code"
+              autocomplete="off"
+              autocapitalize="off"
+              spellcheck="false"
+            />
+          </label>
+
+          <button
+            class="rounded-xl bg-black/10 px-4 py-3 hover:bg-black/15"
+            :disabled="key.length === 0"
+            @click="login"
+          >
+            Connexion
+          </button>
+        </div>
 
         <div v-if="recoveryDisabled" class="text-sm text-primary/70">Récupération par email bientôt disponible.</div>
 
@@ -205,6 +329,32 @@ function setMode(m: 'login' | 'create') {
         </div>
       </div>
 
+    </div>
+
+    <div v-if="qrScannerOpen" class="fixed inset-0 z-[90] bg-black">
+      <video ref="videoEl" class="absolute inset-0 h-full w-full object-cover" playsinline muted />
+
+      <div class="absolute inset-x-0 top-0 flex items-center justify-between gap-3 p-4">
+        <div class="rounded-full bg-black/40 px-3 py-1 text-xs font-semibold text-white ring-1 ring-white/10 backdrop-blur">
+          Scanner le QR de connexion
+        </div>
+        <button
+          class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/40 text-white ring-1 ring-white/10 backdrop-blur hover:bg-black/50"
+          type="button"
+          aria-label="Fermer"
+          title="Fermer"
+          @click="closeQrScan"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5">
+            <path d="M18 6L6 18" />
+            <path d="M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <div v-if="qrScannerError" class="absolute inset-x-0 bottom-0 p-4">
+        <div class="rounded-xl bg-black/50 p-3 text-sm text-white ring-1 ring-white/10 backdrop-blur">{{ qrScannerError }}</div>
+      </div>
     </div>
   </main>
 </template>

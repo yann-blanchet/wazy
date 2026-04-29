@@ -27,6 +27,7 @@ export async function apiFetch<T>(
     method?: 'GET' | 'POST' | 'PUT' | 'DELETE'
     body?: unknown
     key?: string
+    suppressInvalidAuthEvent?: boolean
   } = {}
 ): Promise<T> {
   const headers: Record<string, string> = {}
@@ -42,7 +43,7 @@ export async function apiFetch<T>(
   const data = (await readJsonSafe(res)) as T | ApiError | null
 
   if (!res.ok) {
-    if (res.status === 401 && opts.key) {
+    if (res.status === 401 && opts.key && !opts.suppressInvalidAuthEvent) {
       window.dispatchEvent(new CustomEvent('auth:invalid'))
     }
     const e = (data && typeof data === 'object' ? data : null) as ApiError | null

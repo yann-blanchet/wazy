@@ -107,6 +107,7 @@ export async function flushUploadQueue(opts: {
       {
       method: 'POST',
       key: item.authKey,
+      suppressInvalidAuthEvent: true,
       body: { date: item.date, contentType: item.contentType }
       }
     )

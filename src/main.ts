@@ -17,6 +17,22 @@ const router = createRouter({
 
 const pinia = createPinia()
 
+let handlingInvalidAuth = false
+window.addEventListener('auth:invalid', async () => {
+  if (handlingInvalidAuth) return
+  handlingInvalidAuth = true
+  try {
+    const auth = useAuthStore(pinia)
+    auth.logout()
+
+    if (router.currentRoute.value.path !== '/login' && router.currentRoute.value.path !== '/' && router.currentRoute.value.path !== '/auth') {
+      await router.replace('/login')
+    }
+  } finally {
+    handlingInvalidAuth = false
+  }
+})
+
 router.beforeEach((to) => {
   if (to.path === '/' || to.path === '/login') {
     const auth = useAuthStore(pinia)

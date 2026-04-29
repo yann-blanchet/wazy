@@ -42,6 +42,9 @@ export async function apiFetch<T>(
   const data = (await readJsonSafe(res)) as T | ApiError | null
 
   if (!res.ok) {
+    if (res.status === 401 && opts.key) {
+      window.dispatchEvent(new CustomEvent('auth:invalid'))
+    }
     const e = (data && typeof data === 'object' ? data : null) as ApiError | null
     const msg = e?.message ?? e?.error ?? `HTTP_${res.status}`
     throw new Error(msg)

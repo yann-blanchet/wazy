@@ -30,6 +30,8 @@ type RestaurantPublic = {
   name: string
   address: string
   city?: string
+  lat?: number
+  lng?: number
   phone: string
   cuisineType?: string
 }
@@ -49,6 +51,20 @@ type PermanentMenuItem = {
   id: string
   objectKey: string
   createdAt: number
+}
+
+type PostType = 'menu' | 'event'
+
+type PostRecord = {
+  restaurantId: string
+  type: PostType
+  objectKey: string
+  createdAt: number
+  expiresAt: number
+  city: string
+  lat?: number
+  lng?: number
+  geoCell?: string
 }
 
 type EventItem = {
@@ -406,6 +422,107 @@ async function putRestaurant(env: Env, rec: RestaurantRecord) {
   await env.RESTAURANTS.put(`r:${rec.id}`, JSON.stringify(rec))
 }
 
+function isValidLatLng(lat: unknown, lng: unknown): lat is number {
+  return (
+    typeof lat === 'number' &&
+    typeof lng === 'number' &&
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lng >= -180 &&
+    lng <= 180
+  )
+}
+
+function geoCellId(lat: number, lng: number, cellSizeMeters = 1000): string {
+  const degLat = cellSizeMeters / 111320
+  const degLng = cellSizeMeters / (111320 * Math.max(0.2, Math.cos((lat * Math.PI) / 180)))
+  const latIdx = Math.floor(lat / degLat)
+  const lngIdx = Math.floor(lng / degLng)
+  return `${latIdx}:${lngIdx}`
+}
+
+function haversineMeters(aLat: number, aLng: number, bLat: number, bLng: number): number {
+  const R = 6371000
+  const toRad = (v: number) => (v * Math.PI) / 180
+  const dLat = toRad(bLat - aLat)
+  const dLng = toRad(bLng - aLng)
+  const lat1 = toRad(aLat)
+  const lat2 = toRad(bLat)
+  const s1 = Math.sin(dLat / 2)
+  const s2 = Math.sin(dLng / 2)
+  const h = s1 * s1 + Math.cos(lat1) * Math.cos(lat2) * s2 * s2
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)))
+}
+
+function postKey(restaurantId: string, type: PostType) {
+  return `p:${restaurantId}:${type}`
+}
+
+function idxCityPrefix(city: string) {
+  return `idx:active:city:${city}:`
+}
+
+function idxCityKey(city: string, restaurantId: string, type: PostType) {
+  return `idx:active:city:${city}:${restaurantId}:${type}`
+}
+
+function idxGeoPrefix(cell: string) {
+  return `idx:active:geo:${cell}:`
+}
+
+function idxGeoKey(cell: string, restaurantId: string, type: PostType) {
+  return `idx:active:geo:${cell}:${restaurantId}:${type}`
+}
+
+async function getPost(env: Env, restaurantId: string, type: PostType): Promise<PostRecord | null> {
+  const raw = await env.RESTAURANTS.get(postKey(restaurantId, type))
+  if (!raw) return null
+  return JSON.parse(raw) as PostRecord
+}
+
+async function putPost(env: Env, post: PostRecord) {
+  await env.RESTAURANTS.put(postKey(post.restaurantId, post.type), JSON.stringify(post))
+}
+
+async function deletePost(env: Env, restaurantId: string, type: PostType) {
+  await env.RESTAURANTS.delete(postKey(restaurantId, type))
+}
+
+async function deletePostIndexes(env: Env, post: PostRecord) {
+  if (post.city) await env.RESTAURANTS.delete(idxCityKey(post.city, post.restaurantId, post.type))
+  if (post.geoCell) await env.RESTAURANTS.delete(idxGeoKey(post.geoCell, post.restaurantId, post.type))
+}
+
+async function putPostIndexes(env: Env, post: PostRecord) {
+  const ttlSeconds = Math.max(60, Math.floor((post.expiresAt - Date.now()) / 1000))
+  if (post.city) {
+    await env.RESTAURANTS.put(idxCityKey(post.city, post.restaurantId, post.type), '1', { expirationTtl: ttlSeconds })
+  }
+  if (post.geoCell) {
+    await env.RESTAURANTS.put(idxGeoKey(post.geoCell, post.restaurantId, post.type), '1', { expirationTtl: ttlSeconds })
+  }
+}
+
+async function upsertGeoIndex(env: Env, restaurantId: string, prev: RestaurantPublic | undefined, next: RestaurantPublic) {
+  const prevHas = prev && isValidLatLng(prev.lat, prev.lng)
+  const nextHas = isValidLatLng(next.lat, next.lng)
+  if (prevHas) {
+    const prevCell = geoCellId(prev.lat!, prev.lng!)
+    if (!nextHas) {
+      await env.RESTAURANTS.delete(`geo:${prevCell}:${restaurantId}`)
+    } else {
+      const nextCell = geoCellId(next.lat!, next.lng!)
+      if (prevCell !== nextCell) await env.RESTAURANTS.delete(`geo:${prevCell}:${restaurantId}`)
+    }
+  }
+  if (nextHas) {
+    const nextCell = geoCellId(next.lat!, next.lng!)
+    await env.RESTAURANTS.put(`geo:${nextCell}:${restaurantId}`, '1')
+  }
+}
+
 async function getKeyIndex(env: Env, key: string): Promise<KeyIndexRecord | null> {
   const raw = await env.RESTAURANTS.get(`k:${key}`)
   if (!raw) return null
@@ -492,6 +609,8 @@ async function handle(req: Request, env: Env): Promise<Response> {
         name: 'New restaurant',
         address: '',
         city: '',
+        lat: undefined,
+        lng: undefined,
         phone: '',
         cuisineType: ''
       },
@@ -812,19 +931,212 @@ async function handle(req: Request, env: Env): Promise<Response> {
     if (!auth) return json({ error: 'missing_auth' }, { status: 401 })
     if (auth.role !== 'owner') return json({ error: 'forbidden' }, { status: 403 })
 
-    const body = await readJson<{ name?: string; address?: string; city?: string; phone?: string; cuisineType?: string }>(req)
+    const body = await readJson<{ name?: string; address?: string; city?: string; phone?: string; cuisineType?: string; lat?: number; lng?: number }>(req)
+
+    const prevPublic = auth.rec.public
+
+    const nextLat = body.lat === undefined ? prevPublic.lat : body.lat
+    const nextLng = body.lng === undefined ? prevPublic.lng : body.lng
+    if ((body.lat !== undefined || body.lng !== undefined) && !isValidLatLng(nextLat, nextLng)) {
+      return json({ error: 'invalid_lat_lng' }, { status: 400 })
+    }
 
     auth.rec.public = {
       id: auth.rec.id,
       name: typeof body.name === 'string' ? body.name : auth.rec.public.name,
       address: typeof body.address === 'string' ? body.address : auth.rec.public.address,
       city: typeof body.city === 'string' ? body.city : auth.rec.public.city,
+      lat: nextLat,
+      lng: nextLng,
       phone: typeof body.phone === 'string' ? body.phone : auth.rec.public.phone,
       cuisineType: typeof body.cuisineType === 'string' ? body.cuisineType : auth.rec.public.cuisineType
     }
 
+    await upsertGeoIndex(env, auth.rec.id, prevPublic, auth.rec.public)
     await putRestaurant(env, auth.rec)
     return json({ restaurant: auth.rec.public })
+  }
+
+  if (url.pathname === '/api/posts/presign-upload' && req.method === 'POST') {
+    const auth = await requireAuth(env, req)
+    if (!auth) return json({ error: 'missing_auth' }, { status: 401 })
+
+    const body = await readJson<{ type?: PostType; contentType?: string }>(req)
+    const type = body.type
+    if (type !== 'menu' && type !== 'event') return json({ error: 'invalid_type' }, { status: 400 })
+
+    const pid = randomId(12)
+    const objectKey = `posts/${auth.rec.id}/${type}/${pid}.jpg`
+
+    const presignFn = (env.PRIVATE_MENUS as unknown as { createPresignedUrl?: Function }).createPresignedUrl
+    const uploadUrl =
+      typeof presignFn === 'function'
+        ? await (presignFn as (opts: unknown) => Promise<string>)({
+            method: 'PUT',
+            key: objectKey,
+            expiresIn: 60 * 5,
+            headers: body.contentType ? { 'content-type': body.contentType } : undefined
+          })
+        : null
+
+    return json({ objectKey, uploadUrl })
+  }
+
+  if (url.pathname === '/api/posts' && req.method === 'POST') {
+    const auth = await requireAuth(env, req)
+    if (!auth) return json({ error: 'missing_auth' }, { status: 401 })
+
+    const body = await readJson<{ type?: PostType; objectKey?: string; expiresAt?: number }>(req)
+    const type = body.type
+    if (type !== 'menu' && type !== 'event') return json({ error: 'invalid_type' }, { status: 400 })
+
+    const objectKey = typeof body.objectKey === 'string' ? body.objectKey.trim() : ''
+    if (!objectKey) return json({ error: 'missing_object_key' }, { status: 400 })
+
+    const now = Date.now()
+    const expiresAt = typeof body.expiresAt === 'number' && Number.isFinite(body.expiresAt) ? body.expiresAt : now + 1000 * 60 * 60 * 24
+    if (expiresAt <= now) return json({ error: 'invalid_expires_at' }, { status: 400 })
+
+    const city = String(auth.rec.public.city ?? '').trim()
+    if (!city) return json({ error: 'missing_city' }, { status: 400 })
+
+    const geoCell = isValidLatLng(auth.rec.public.lat, auth.rec.public.lng)
+      ? geoCellId(auth.rec.public.lat!, auth.rec.public.lng!, 1000)
+      : undefined
+
+    const prev = await getPost(env, auth.rec.id, type)
+    if (prev) await deletePostIndexes(env, prev)
+
+    const post: PostRecord = {
+      restaurantId: auth.rec.id,
+      type,
+      objectKey,
+      createdAt: now,
+      expiresAt,
+      city,
+      lat: auth.rec.public.lat,
+      lng: auth.rec.public.lng,
+      geoCell
+    }
+
+    await putPost(env, post)
+    await putPostIndexes(env, post)
+
+    return json({ ok: true, post })
+  }
+
+  if (url.pathname === '/api/feed' && req.method === 'GET') {
+    const cityRaw = url.searchParams.get('city')
+    const city = typeof cityRaw === 'string' ? cityRaw.trim() : ''
+    if (!city) return json({ error: 'missing_city' }, { status: 400 })
+
+    const cacheKey = new Request(new URL(req.url).toString(), { method: 'GET' })
+    const cache = caches.default
+    const hit = await cache.match(cacheKey)
+    if (hit) return hit
+
+    const prefix = idxCityPrefix(city)
+    const idx = await env.RESTAURANTS.list({ prefix, limit: 200 })
+    const refs: Array<{ restaurantId: string; type: PostType }> = []
+
+    for (const k of idx.keys) {
+      const parts = k.name.split(':')
+      const restaurantId = parts[parts.length - 2]
+      const type = parts[parts.length - 1] as PostType
+      if (!restaurantId) continue
+      if (type !== 'menu' && type !== 'event') continue
+      refs.push({ restaurantId, type })
+    }
+
+    const posts = await Promise.all(refs.map((r) => getPost(env, r.restaurantId, r.type)))
+    const now = Date.now()
+
+    const out: Array<{ restaurant: RestaurantPublic; post: PostRecord }> = []
+    for (const p of posts) {
+      if (!p) continue
+      if (p.expiresAt <= now) continue
+
+      const rec = await getRestaurant(env, p.restaurantId)
+      if (!rec) continue
+
+      out.push({ restaurant: rec.public, post: p })
+    }
+
+    const res = json({ items: out }, { status: 200 })
+    res.headers.set('cache-control', 'public, max-age=30')
+    await cache.put(cacheKey, res.clone())
+    return res
+  }
+
+  if (url.pathname === '/api/feed/near' && req.method === 'GET') {
+    const latStr = url.searchParams.get('lat')
+    const lngStr = url.searchParams.get('lng')
+    const lat = latStr ? Number(latStr) : NaN
+    const lng = lngStr ? Number(lngStr) : NaN
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      return json({ error: 'invalid_lat_lng' }, { status: 400 })
+    }
+
+    const city = url.searchParams.get('city')
+
+    const roundedLat = Number(lat.toFixed(3))
+    const roundedLng = Number(lng.toFixed(3))
+    const cacheUrl = new URL(req.url)
+    cacheUrl.searchParams.set('lat', String(roundedLat))
+    cacheUrl.searchParams.set('lng', String(roundedLng))
+    if (city) cacheUrl.searchParams.set('city', city)
+
+    const cacheKey = new Request(cacheUrl.toString(), { method: 'GET' })
+    const cache = caches.default
+    const hit = await cache.match(cacheKey)
+    if (hit) return hit
+
+    const radiusMeters = 2000
+    const cellSizeMeters = 1000
+    const cellRadius = 2
+    const centerCell = geoCellId(lat, lng, cellSizeMeters)
+    const [centerLatIdxStr, centerLngIdxStr] = centerCell.split(':')
+    const centerLatIdx = Number(centerLatIdxStr)
+    const centerLngIdx = Number(centerLngIdxStr)
+
+    const prefixes: string[] = []
+    for (let dy = -cellRadius; dy <= cellRadius; dy++) {
+      for (let dx = -cellRadius; dx <= cellRadius; dx++) {
+        prefixes.push(`geo:${centerLatIdx + dy}:${centerLngIdx + dx}:`)
+      }
+    }
+
+    const lists = await Promise.all(prefixes.map((p) => env.RESTAURANTS.list({ prefix: p, limit: 1000 })))
+    const ids = new Set<string>()
+    for (const l of lists) {
+      for (const k of l.keys) {
+        const parts = k.name.split(':')
+        const id = parts[parts.length - 1]
+        if (id) ids.add(id)
+      }
+    }
+
+    const recs = await Promise.all(Array.from(ids).map((id) => getRestaurant(env, id)))
+    const today = todayISO()
+
+    const out: Array<{ restaurant: RestaurantPublic; distanceMeters: number; hasMenuToday: boolean; menuDate: string | null }> = []
+    for (const rec of recs) {
+      if (!rec) continue
+      const pub = rec.public
+      if (!isValidLatLng(pub.lat, pub.lng)) continue
+      if (typeof city === 'string' && city.length > 0 && String(pub.city ?? '') !== city) continue
+
+      const distanceMeters = haversineMeters(lat, lng, pub.lat!, pub.lng!)
+      if (distanceMeters > radiusMeters) continue
+
+      const hasMenuToday = rec.menus.some((m) => m.date === today)
+      out.push({ restaurant: pub, distanceMeters, hasMenuToday, menuDate: hasMenuToday ? today : null })
+    }
+
+    const res = json({ items: out }, { status: 200 })
+    res.headers.set('cache-control', 'public, max-age=30')
+    await cache.put(cacheKey, res.clone())
+    return res
   }
 
   if (url.pathname === '/api/menu/presign-upload' && req.method === 'POST') {
@@ -1187,7 +1499,7 @@ async function handle(req: Request, env: Env): Promise<Response> {
   if (publicMatch && req.method === 'GET') {
     const id = publicMatch[1]
     const rec = await getRestaurant(env, id)
-    if (!rec) return json({ error: 'not_found' }, { status: 404 })
+    if (!rec) return new Response('Not found', { status: 404 })
 
     const permanentMenus = normalizePermanentMenus(rec)
     const photos = normalizeRestaurantPhotos(rec)
@@ -1200,6 +1512,40 @@ async function handle(req: Request, env: Env): Promise<Response> {
       permanentMenus: permanentMenus.slice(0, 30).map((m) => ({ id: m.id, createdAt: m.createdAt })),
       photos: photos.slice(0, 30).map((p) => ({ id: p.id, createdAt: p.createdAt }))
     })
+  }
+
+  const postMatch = url.pathname.match(/^\/api\/public\/([a-z0-9]+)\/post\/(menu|event)$/i)
+  if (postMatch && req.method === 'GET') {
+    const id = postMatch[1]
+    const type = postMatch[2] as PostType
+
+    const post = await getPost(env, id, type)
+    if (!post) return new Response('Not found', { status: 404 })
+    if (post.expiresAt <= Date.now()) return new Response('Not found', { status: 404 })
+
+    const presignFn = (env.PRIVATE_MENUS as unknown as { createPresignedUrl?: Function }).createPresignedUrl
+    if (typeof presignFn === 'function') {
+      const signed = await (presignFn as (opts: unknown) => Promise<string>)({
+        method: 'GET',
+        key: post.objectKey,
+        expiresIn: 60
+      })
+
+      return new Response(null, {
+        status: 302,
+        headers: {
+          location: signed
+        }
+      })
+    }
+
+    const obj = await env.PRIVATE_MENUS.get(post.objectKey)
+    if (!obj) return new Response('Not found', { status: 404 })
+
+    const headers = new Headers()
+    obj.writeHttpMetadata(headers)
+    headers.set('cache-control', 'public, max-age=60')
+    return new Response(obj.body, { status: 200, headers })
   }
 
   const eventMatch = url.pathname.match(/^\/api\/public\/([a-z0-9]+)\/event$/i)

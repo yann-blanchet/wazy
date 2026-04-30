@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { apiFetch } from '../lib/api'
@@ -10,10 +10,79 @@ const auth = useAuthStore()
 const name = ref<string>('')
 const address = ref<string>('')
 const city = ref<string>('')
+const lat = ref<number | null>(null)
+const lng = ref<number | null>(null)
 const phone = ref<string>('')
 const cuisineType = ref<string>('')
 const status = ref<string>('')
 const saving = ref<boolean>(false)
+
+type BanFeature = {
+  type: 'Feature'
+  properties: { label?: string; city?: string }
+  geometry: { type: 'Point'; coordinates: [number, number] }
+}
+
+const addressSuggestions = ref<BanFeature[]>([])
+const addressOpen = ref<boolean>(false)
+const addressLoading = ref<boolean>(false)
+let addressTimer: number | null = null
+let addressAbort: AbortController | null = null
+
+async function searchBan(q: string) {
+  const query = q.trim()
+  if (query.length < 3) {
+    addressSuggestions.value = []
+    addressOpen.value = false
+    return
+  }
+
+  if (addressAbort) addressAbort.abort()
+  addressAbort = new AbortController()
+  addressLoading.value = true
+  try {
+    const url = `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(query)}&limit=6`
+    const res = await fetch(url, { signal: addressAbort.signal })
+    const data = (await res.json()) as { features?: BanFeature[] }
+    addressSuggestions.value = Array.isArray(data.features) ? data.features : []
+    addressOpen.value = addressSuggestions.value.length > 0
+  } finally {
+    addressLoading.value = false
+  }
+}
+
+function pickAddress(f: BanFeature) {
+  const label = String(f.properties?.label ?? '').trim()
+  const nextCity = String(f.properties?.city ?? '').trim()
+  const coords = Array.isArray(f.geometry?.coordinates) ? f.geometry.coordinates : null
+  if (label) address.value = label
+  if (nextCity) city.value = nextCity
+  if (coords && coords.length === 2) {
+    lng.value = Number(coords[0])
+    lat.value = Number(coords[1])
+  }
+  addressOpen.value = false
+  addressSuggestions.value = []
+}
+
+function closeAddressSuggestionsLater() {
+  globalThis.setTimeout(() => {
+    addressOpen.value = false
+  }, 150)
+}
+
+watch(
+  address,
+  (v) => {
+    if (addressTimer !== null) window.clearTimeout(addressTimer)
+    addressTimer = window.setTimeout(() => {
+      lat.value = null
+      lng.value = null
+      void searchBan(v)
+    }, 250)
+  },
+  { flush: 'post' }
+)
 
 const cuisineSheetOpen = ref<boolean>(false)
 const cuisineOptions = [
@@ -40,7 +109,7 @@ onMounted(async () => {
       return
     }
 
-    const res = await apiFetch<{ restaurant: { name: string; address: string; city?: string; phone: string; cuisineType?: string } }>(
+    const res = await apiFetch<{ restaurant: { name: string; address: string; city?: string; phone: string; cuisineType?: string; lat?: number; lng?: number } }>(
       '/api/restaurant',
       { method: 'GET', key: auth.key }
     )
@@ -50,6 +119,8 @@ onMounted(async () => {
     city.value = res.restaurant.city ?? ''
     phone.value = res.restaurant.phone ?? ''
     cuisineType.value = res.restaurant.cuisineType ?? ''
+    lat.value = typeof res.restaurant.lat === 'number' ? res.restaurant.lat : null
+    lng.value = typeof res.restaurant.lng === 'number' ? res.restaurant.lng : null
 
     queueMicrotask(() => nameInputEl.value?.focus())
   } catch (e) {
@@ -62,6 +133,8 @@ async function save() {
     if (!auth.isMaster) throw new Error('forbidden')
     if (!auth.key) throw new Error('missing_auth')
     if (name.value.trim().length === 0) throw new Error('missing_name')
+    if (address.value.trim().length === 0) throw new Error('missing_address')
+    if (lat.value === null || lng.value === null) throw new Error('invalid_address')
 
     saving.value = true
     status.value = ''
@@ -73,6 +146,8 @@ async function save() {
         name: name.value,
         address: address.value,
         city: city.value,
+        lat: lat.value,
+        lng: lng.value,
         phone: phone.value
         ,
         cuisineType: cuisineType.value
@@ -85,10 +160,6 @@ async function save() {
   } finally {
     saving.value = false
   }
-}
-
-async function skip() {
-  await router.replace('/dashboard')
 }
 
 function pickCuisine(v: string) {
@@ -105,7 +176,7 @@ function pickCuisine(v: string) {
     >
       <div class="flex items-center justify-between">
         <div class="text-sm font-medium text-primary">Créer votre restaurant</div>
-        <button class="text-sm text-primary/70 underline" @click="skip">Passer</button>
+        <div class="w-10" />
       </div>
     </div>
 
@@ -128,11 +199,30 @@ function pickCuisine(v: string) {
 
         <label class="grid gap-2">
           <span class="text-sm text-primary/70">Adresse</span>
-          <input
-            v-model="address"
-            class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 text-sm text-primary outline-none focus:border-primary/60"
-            autocomplete="street-address"
-          />
+          <div class="relative">
+            <input
+              v-model="address"
+              class="w-full rounded-xl border border-black/10 bg-black/5 px-3 py-3 text-sm text-primary outline-none focus:border-primary/60"
+              autocomplete="street-address"
+              @focus="addressOpen = addressSuggestions.length > 0"
+              @blur="closeAddressSuggestionsLater"
+            />
+            <div
+              v-if="addressOpen"
+              class="absolute left-0 right-0 top-full z-10 mt-2 overflow-hidden rounded-xl border border-black/10 bg-background shadow-lg"
+            >
+              <div v-if="addressLoading" class="px-3 py-2 text-xs text-primary/60">Recherche…</div>
+              <button
+                v-for="s in addressSuggestions"
+                :key="String(s.properties?.label ?? '') + String(s.geometry?.coordinates?.[0] ?? '')"
+                class="block w-full px-3 py-3 text-left text-sm text-primary hover:bg-black/5"
+                type="button"
+                @click="pickAddress(s)"
+              >
+                {{ s.properties?.label ?? '' }}
+              </button>
+            </div>
+          </div>
         </label>
 
         <label class="grid gap-2">
@@ -166,7 +256,7 @@ function pickCuisine(v: string) {
 
         <button
           class="mt-1 w-full rounded-xl bg-primary px-4 py-3 text-sm font-medium text-background hover:bg-primary/90"
-          :disabled="saving || name.trim().length === 0"
+          :disabled="saving || name.trim().length === 0 || address.trim().length === 0 || lat === null || lng === null"
           @click="save"
         >
           Enregistrer et continuer

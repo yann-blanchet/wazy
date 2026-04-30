@@ -100,17 +100,34 @@ export async function flushUploadQueue(opts: {
   for (const item of items.slice(0, max)) {
     if (!navigator.onLine) break
 
+    if (!item.authKey) {
+      await remove(item.id)
+      continue
+    }
+
     opts.onStatus?.(`Uploading queued photo… (${uploaded + 1}/${Math.min(items.length, max)})`)
 
-    const presign = await apiFetch<{ objectKey: string; uploadUrl: string | null }>(
-      '/api/menu/presign-upload',
-      {
-      method: 'POST',
-      key: item.authKey,
-      suppressInvalidAuthEvent: true,
-      body: { date: item.date, contentType: item.contentType }
+    let presign: { objectKey: string; uploadUrl: string | null } | null = null
+    try {
+      presign = await apiFetch<{ objectKey: string; uploadUrl: string | null }>(
+        '/api/menu/presign-upload',
+        {
+          method: 'POST',
+          key: item.authKey,
+          suppressInvalidAuthEvent: true,
+          body: { date: item.date, contentType: item.contentType }
+        }
+      )
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      if (msg === 'missing_auth' || msg === 'HTTP_401') {
+        await remove(item.id)
+        continue
       }
-    )
+      throw e
+    }
+
+    if (!presign) continue
 
     const putRes = presign.uploadUrl
       ? await fetch(presign.uploadUrl, {

@@ -217,6 +217,7 @@ function pickCuisine(v: string) {
                 :key="String(s.properties?.label ?? '') + String(s.geometry?.coordinates?.[0] ?? '')"
                 class="block w-full px-3 py-3 text-left text-sm text-primary hover:bg-black/5"
                 type="button"
+                @mousedown.prevent="pickAddress(s)"
                 @click="pickAddress(s)"
               >
                 {{ s.properties?.label ?? '' }}
@@ -256,7 +257,7 @@ function pickCuisine(v: string) {
 
         <button
           class="mt-1 w-full rounded-xl bg-primary px-4 py-3 text-sm font-medium text-background hover:bg-primary/90"
-          :disabled="saving || name.trim().length === 0 || address.trim().length === 0 || lat === null || lng === null"
+          :disabled="saving"
           @click="save"
         >
           Enregistrer et continuer

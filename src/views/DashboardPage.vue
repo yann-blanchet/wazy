@@ -125,7 +125,7 @@ async function flush() {
 
 onMounted(async () => {
   await refreshQueued()
-  if (navigator.onLine) await flush()
+  if (navigator.onLine && auth.key) await flush()
 
   try {
     if (auth.key) {

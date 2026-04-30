@@ -13,6 +13,7 @@ import LienPublicPage from './views/LienPublicPage.vue'
 import StatsPage from './views/StatsPage.vue'
 import AuthPage from './views/AuthPage.vue'
 import AccessCodesPage from './views/AccessCodesPage.vue'
+import SuperAdminPage from './views/SuperAdminPage.vue'
 
 export const routes: RouteRecordRaw[] = [
   { path: '/', name: 'login', component: LoginPage },
@@ -28,5 +29,6 @@ export const routes: RouteRecordRaw[] = [
   { path: '/enhance', name: 'enhance', component: EnhancePage },
   { path: '/history', name: 'history', component: HistoryPage },
   { path: '/onboarding', name: 'onboarding', component: OnboardingPage },
+  { path: '/superadmin', name: 'superadmin', component: SuperAdminPage },
   { path: '/r/:id', name: 'public', component: PublicRestaurantPage }
 ]

@@ -2,6 +2,7 @@ export interface Env {
   APP_ORIGIN: string
   RESEND_API_KEY: string
   RESEND_FROM: string
+  ADMIN_TOKEN: string
   PRIVATE_MENUS: R2Bucket
   RESTAURANTS: KVNamespace
 }
@@ -296,6 +297,14 @@ async function requireAuth(env: Env, req: Request): Promise<{ rec: RestaurantRec
   return { rec: legacy.rec, role: legacy.role === 'master' ? 'owner' : 'staff', token: bearer }
 }
 
+function requireAdmin(env: Env, req: Request): boolean {
+  const bearer = parseAuthKeyFromHeader(req)
+  if (!bearer) return false
+  const expected = String(env.ADMIN_TOKEN ?? '').trim()
+  if (!expected) return false
+  return bearer === expected
+}
+
 function randomId(len = 10) {
   const alphabet = 'abcdefghjkmnpqrstuvwxyz23456789'
   const bytes = new Uint8Array(len)
@@ -557,6 +566,198 @@ async function handle(req: Request, env: Env): Promise<Response> {
   const url = new URL(req.url)
 
   if (req.method === 'OPTIONS') return new Response(null, { status: 204 })
+
+  if (url.pathname.startsWith('/api/admin/')) {
+    if (!requireAdmin(env, req)) return json({ error: 'missing_auth' }, { status: 401 })
+  }
+
+  if (url.pathname === '/api/admin/seed' && req.method === 'POST') {
+    const body = await readJsonOptional<{
+      count?: number
+      city?: string
+      centerLat?: number
+      centerLng?: number
+      radiusMeters?: number
+      imageKeys?: string[]
+      imagePrefix?: string
+    }>(req)
+
+    const count = typeof body?.count === 'number' && Number.isFinite(body.count) ? Math.floor(body.count) : 0
+    if (count <= 0 || count > 200) return json({ error: 'invalid_count' }, { status: 400 })
+
+    const city = String(body?.city ?? '').trim()
+    if (!city) return json({ error: 'missing_city' }, { status: 400 })
+
+    const centerLat = typeof body?.centerLat === 'number' && Number.isFinite(body.centerLat) ? body.centerLat : NaN
+    const centerLng = typeof body?.centerLng === 'number' && Number.isFinite(body.centerLng) ? body.centerLng : NaN
+    const radiusMeters = typeof body?.radiusMeters === 'number' && Number.isFinite(body.radiusMeters) ? body.radiusMeters : 2000
+    if (!Number.isFinite(centerLat) || !Number.isFinite(centerLng) || centerLat < -90 || centerLat > 90 || centerLng < -180 || centerLng > 180) {
+      return json({ error: 'invalid_lat_lng' }, { status: 400 })
+    }
+    if (!Number.isFinite(radiusMeters) || radiusMeters <= 0 || radiusMeters > 20000) return json({ error: 'invalid_radius' }, { status: 400 })
+
+    const imagePrefix = typeof body?.imagePrefix === 'string' ? body.imagePrefix.trim() : ''
+    let imageKeys = Array.isArray(body?.imageKeys) ? body?.imageKeys.map((x) => String(x).trim()).filter((x) => x.length > 0) : []
+
+    if (imageKeys.length === 0 && imagePrefix.length > 0) {
+      const listed = await env.PRIVATE_MENUS.list({ prefix: imagePrefix, limit: 1000 })
+      imageKeys = listed.objects.map((o) => o.key)
+    }
+
+    if (imageKeys.length === 0) {
+      if (imagePrefix.length > 0) return json({ error: 'empty_image_prefix', prefix: imagePrefix }, { status: 400 })
+      return json({ error: 'missing_image_prefix' }, { status: 400 })
+    }
+
+    const created: Array<{ id: string; ownerCode: string; staffCode: string }> = []
+
+    for (let i = 0; i < count; i++) {
+      let id: string | null = null
+      for (let j = 0; j < 10; j++) {
+        const candidate = `seed-${randomId(10)}`
+        const existing = await getRestaurant(env, candidate)
+        if (!existing) {
+          id = candidate
+          break
+        }
+      }
+      if (!id) return json({ error: 'id_generation_failed' }, { status: 500 })
+
+      let workerKey: string | null = null
+      let masterKey: string | null = null
+      for (let j = 0; j < 10; j++) {
+        const wk = randomKey('wkr')
+        const mk = randomKey('msr')
+        const wkExisting = await getKeyIndex(env, wk)
+        const mkExisting = await getKeyIndex(env, mk)
+        if (!wkExisting && !mkExisting) {
+          workerKey = wk
+          masterKey = mk
+          break
+        }
+      }
+      if (!workerKey || !masterKey) return json({ error: 'key_generation_failed' }, { status: 500 })
+
+      const angle = Math.random() * Math.PI * 2
+      const dist = Math.random() * radiusMeters
+      const dLat = (dist * Math.cos(angle)) / 111320
+      const dLng = (dist * Math.sin(angle)) / (111320 * Math.max(0.2, Math.cos((centerLat * Math.PI) / 180)))
+      const lat = centerLat + dLat
+      const lng = centerLng + dLng
+
+      const rec: RestaurantRecord = {
+        id,
+        workerKey,
+        masterKey,
+        employeeKeys: [workerKey],
+        ownerKeys: [masterKey],
+        ownerCode: undefined,
+        staffCode: undefined,
+        adminEmail: undefined,
+        public: {
+          id,
+          name: `Seed Restaurant ${i + 1}`,
+          address: '—',
+          city,
+          lat,
+          lng,
+          phone: '',
+          cuisineType: ''
+        },
+        menus: [],
+        permanentMenu: undefined,
+        permanentMenus: [],
+        photos: [],
+        qrLinks: []
+      }
+
+      rec.ownerCode = makeOwnerCode()
+      rec.staffCode = makeStaffCode()
+
+      await putRestaurant(env, rec)
+      await putKeyIndex(env, masterKey, { id, role: 'master' })
+      await putKeyIndex(env, workerKey, { id, role: 'worker' })
+      await putCodeIndex(env, rec.ownerCode, id)
+      await putCodeIndex(env, rec.staffCode, id)
+      await upsertGeoIndex(env, id, undefined, rec.public)
+      await env.RESTAURANTS.put(`admin:seed:${id}`, '1')
+
+      const pickKey = () => imageKeys[Math.floor(Math.random() * imageKeys.length)]
+      const now = Date.now()
+
+      for (const type of ['menu', 'event'] as const) {
+        const pid = randomId(12)
+        const objectKey = `posts/${id}/${type}/${pid}.jpg`
+        const srcKey = pickKey()
+        const srcObj = await env.PRIVATE_MENUS.get(srcKey)
+        if (!srcObj) return json({ error: 'seed_image_missing', key: srcKey }, { status: 400 })
+        await env.PRIVATE_MENUS.put(objectKey, srcObj.body, { httpMetadata: srcObj.httpMetadata })
+
+        const expiresAt = type === 'menu' ? now + 1000 * 60 * 60 * 24 : now + 1000 * 60 * 60 * 24 * 7
+        const geoCell = geoCellId(lat, lng, 1000)
+        const post: PostRecord = {
+          restaurantId: id,
+          type,
+          objectKey,
+          createdAt: now,
+          expiresAt,
+          city,
+          lat,
+          lng,
+          geoCell
+        }
+
+        const prev = await getPost(env, id, type)
+        if (prev) {
+          await deletePostIndexes(env, prev)
+          await deletePost(env, id, type)
+        }
+        await putPost(env, post)
+        await putPostIndexes(env, post)
+      }
+
+      created.push({ id, ownerCode: rec.ownerCode ?? '', staffCode: rec.staffCode ?? '' })
+    }
+
+    return json({ ok: true, created })
+  }
+
+  if (url.pathname === '/api/admin/purge-seed' && req.method === 'POST') {
+    const idx = await env.RESTAURANTS.list({ prefix: 'admin:seed:', limit: 1000 })
+    let deleted = 0
+
+    for (const k of idx.keys) {
+      const id = k.name.slice('admin:seed:'.length)
+      if (!id) continue
+
+      const rec = await getRestaurant(env, id)
+      if (rec) {
+        await deleteKeyIndex(env, rec.masterKey)
+        await deleteKeyIndex(env, rec.workerKey)
+        await deleteCodeIndex(env, rec.ownerCode ?? '')
+        await deleteCodeIndex(env, rec.staffCode ?? '')
+
+        if (isValidLatLng(rec.public.lat, rec.public.lng)) {
+          const cell = geoCellId(rec.public.lat!, rec.public.lng!, 1000)
+          await env.RESTAURANTS.delete(`geo:${cell}:${id}`)
+        }
+      }
+
+      for (const type of ['menu', 'event'] as const) {
+        const post = await getPost(env, id, type)
+        if (post) {
+          await deletePostIndexes(env, post)
+          await deletePost(env, id, type)
+        }
+      }
+
+      await env.RESTAURANTS.delete(`r:${id}`)
+      await env.RESTAURANTS.delete(k.name)
+      deleted += 1
+    }
+
+    return json({ ok: true, deleted })
+  }
 
   if (url.pathname === '/api/account/create' && req.method === 'POST') {
     const body = await readJsonOptional<{ id?: string }>(req)

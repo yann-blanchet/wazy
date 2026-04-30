@@ -43,6 +43,10 @@ router.beforeEach((to) => {
     return true
   }
 
+  if (to.path === '/superadmin') {
+    return true
+  }
+
   if (
     to.path === '/dashboard' ||
     to.path === '/codes-acces' ||

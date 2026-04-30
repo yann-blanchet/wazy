@@ -45,14 +45,12 @@ router.beforeEach((to) => {
 
   if (
     to.path === '/dashboard' ||
-    to.path === '/qr-access' ||
+    to.path === '/codes-acces' ||
     to.path === '/infos' ||
     to.path === '/carte' ||
     to.path === '/galerie' ||
     to.path === '/lien-public' ||
     to.path === '/stats' ||
-    to.path === '/logout' ||
-    to.path === '/settings' ||
     to.path === '/history' ||
     to.path === '/enhance' ||
     to.path === '/onboarding'

@@ -23,6 +23,8 @@ function normalizeRestaurantPhotos(rec: RestaurantRecord): RestaurantPhotoItem[]
 
 type Role = 'master' | 'worker'
 
+type SessionRole = 'owner' | 'staff'
+
 type RestaurantPublic = {
   id: string
   name: string
@@ -67,6 +69,8 @@ type RestaurantRecord = {
   masterKey: string
   employeeKeys?: string[]
   ownerKeys?: string[]
+  ownerCode?: string
+  staffCode?: string
   adminEmail?: string
   public: RestaurantPublic
   menus: MenuItem[]
@@ -75,6 +79,11 @@ type RestaurantRecord = {
   permanentMenus?: PermanentMenuItem[]
   photos?: RestaurantPhotoItem[]
   qrLinks?: QrLinkMeta[]
+}
+
+type TokenSession = {
+  restaurantId: string
+  role: SessionRole
 }
 
 type QrLinkMeta = {
@@ -188,6 +197,87 @@ function parseAuthKeyFromHeader(req: Request) {
   const m = h.match(/^Bearer\s+(.+)$/i)
   if (!m) return null
   return normalizeKey(m[1])
+}
+
+const TOKEN_TTL_SECONDS = 90 * 24 * 60 * 60
+
+function randomCode(len = 8) {
+  const alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
+  const bytes = new Uint8Array(len)
+  crypto.getRandomValues(bytes)
+  let out = ''
+  for (let i = 0; i < len; i++) out += alphabet[bytes[i] % alphabet.length]
+  return out
+}
+
+function normalizeCode(c: string) {
+  return c.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
+}
+
+function makeOwnerCode() {
+  return `OWNER-${randomCode(8)}`
+}
+
+function makeStaffCode() {
+  return `STAFF-${randomCode(8)}`
+}
+
+async function putCodeIndex(env: Env, code: string, restaurantId: string) {
+  const k = normalizeCode(code)
+  if (!k) return
+  await env.RESTAURANTS.put(`code:${k}`, restaurantId)
+}
+
+async function deleteCodeIndex(env: Env, code: string) {
+  const k = normalizeCode(code)
+  if (!k) return
+  await env.RESTAURANTS.delete(`code:${k}`)
+}
+
+async function getRestaurantIdByCode(env: Env, code: string): Promise<string | null> {
+  const k = normalizeCode(code)
+  if (!k) return null
+  const raw = await env.RESTAURANTS.get(`code:${k}`)
+  if (!raw) return null
+  const id = String(raw).trim()
+  return id.length > 0 ? id : null
+}
+
+async function putTokenSession(env: Env, token: string, session: TokenSession) {
+  await env.RESTAURANTS.put(`token:${token}`, JSON.stringify(session), { expirationTtl: TOKEN_TTL_SECONDS })
+}
+
+async function getTokenSession(env: Env, token: string): Promise<TokenSession | null> {
+  const raw = await env.RESTAURANTS.get(`token:${token}`)
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw) as TokenSession
+    if (!parsed?.restaurantId || (parsed.role !== 'owner' && parsed.role !== 'staff')) return null
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+async function refreshTokenSession(env: Env, token: string, session: TokenSession) {
+  await putTokenSession(env, token, session)
+}
+
+async function requireAuth(env: Env, req: Request): Promise<{ rec: RestaurantRecord; role: SessionRole; token: string } | null> {
+  const bearer = parseAuthKeyFromHeader(req)
+  if (!bearer) return null
+
+  const s = await getTokenSession(env, bearer)
+  if (s) {
+    const rec = await getRestaurant(env, s.restaurantId)
+    if (!rec) return null
+    await refreshTokenSession(env, bearer, s)
+    return { rec, role: s.role, token: bearer }
+  }
+
+  const legacy = await authRestaurant(env, bearer)
+  if (!legacy) return null
+  return { rec: legacy.rec, role: legacy.role === 'master' ? 'owner' : 'staff', token: bearer }
 }
 
 function randomId(len = 10) {
@@ -394,6 +484,8 @@ async function handle(req: Request, env: Env): Promise<Response> {
       masterKey,
       employeeKeys: [workerKey],
       ownerKeys: [masterKey],
+      ownerCode: undefined,
+      staffCode: undefined,
       adminEmail: undefined,
       public: {
         id,
@@ -410,12 +502,67 @@ async function handle(req: Request, env: Env): Promise<Response> {
       qrLinks: []
     }
 
+    rec.ownerCode = makeOwnerCode()
+    rec.staffCode = makeStaffCode()
+
     await putRestaurant(env, rec)
 
     await putKeyIndex(env, masterKey, { id, role: 'master' })
     await putKeyIndex(env, workerKey, { id, role: 'worker' })
 
-    return json({ id, workerKey, masterKey })
+    await putCodeIndex(env, rec.ownerCode, id)
+    await putCodeIndex(env, rec.staffCode, id)
+
+    return json({ id, workerKey, masterKey, ownerCode: rec.ownerCode, staffCode: rec.staffCode })
+  }
+
+  if ((url.pathname === '/auth/login' || url.pathname === '/api/auth/login') && req.method === 'POST') {
+    const body = await readJson<{ code: string }>(req)
+    const code = normalizeCode(String(body.code ?? ''))
+    if (!code) return json({ error: 'missing_code' }, { status: 400 })
+
+    const restaurantId = await getRestaurantIdByCode(env, code)
+    if (!restaurantId) return json({ error: 'invalid_code' }, { status: 401 })
+
+    const rec = await getRestaurant(env, restaurantId)
+    if (!rec) return json({ error: 'invalid_code' }, { status: 401 })
+
+    const role: SessionRole = code === normalizeCode(rec.ownerCode ?? '') ? 'owner' : code === normalizeCode(rec.staffCode ?? '') ? 'staff' : 'staff'
+    if (role === 'staff' && code !== normalizeCode(rec.staffCode ?? '')) return json({ error: 'invalid_code' }, { status: 401 })
+
+    const token = randomHex(32)
+    await putTokenSession(env, token, { restaurantId, role })
+    return json({ token, role })
+  }
+
+  if ((url.pathname === '/auth/me' || url.pathname === '/api/auth/me') && req.method === 'GET') {
+    const auth = await requireAuth(env, req)
+    if (!auth) return json({ error: 'missing_auth' }, { status: 401 })
+    return json({ restaurantId: auth.rec.id, role: auth.role })
+  }
+
+  if ((url.pathname === '/auth/reset' || url.pathname === '/api/auth/reset') && req.method === 'POST') {
+    const auth = await requireAuth(env, req)
+    if (!auth) return json({ error: 'missing_auth' }, { status: 401 })
+    if (auth.role !== 'owner') return json({ error: 'forbidden' }, { status: 403 })
+
+    const prevOwner = auth.rec.ownerCode ?? ''
+    const prevStaff = auth.rec.staffCode ?? ''
+
+    const nextOwner = makeOwnerCode()
+    const nextStaff = makeStaffCode()
+
+    auth.rec.ownerCode = nextOwner
+    auth.rec.staffCode = nextStaff
+    await putRestaurant(env, auth.rec)
+
+    if (prevOwner) await deleteCodeIndex(env, prevOwner)
+    if (prevStaff) await deleteCodeIndex(env, prevStaff)
+
+    await putCodeIndex(env, nextOwner, auth.rec.id)
+    await putCodeIndex(env, nextStaff, auth.rec.id)
+
+    return json({ ownerCode: nextOwner, staffCode: nextStaff })
   }
 
   if (url.pathname === '/api/auth/qr' && req.method === 'POST') {
@@ -440,23 +587,17 @@ async function handle(req: Request, env: Env): Promise<Response> {
   }
 
   if (url.pathname === '/api/account/admin-email' && req.method === 'GET') {
-    const key = parseAuthKeyFromHeader(req)
-    if (!key) return json({ error: 'missing_auth' }, { status: 401 })
-
-    const auth = await authRestaurant(env, key)
-    if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
-    if (auth.role !== 'master') return json({ error: 'forbidden' }, { status: 403 })
+    const auth = await requireAuth(env, req)
+    if (!auth) return json({ error: 'missing_auth' }, { status: 401 })
+    if (auth.role !== 'owner') return json({ error: 'forbidden' }, { status: 403 })
 
     return json({ adminEmail: auth.rec.adminEmail ?? '' })
   }
 
   if (url.pathname === '/api/account/admin-email' && req.method === 'PUT') {
-    const key = parseAuthKeyFromHeader(req)
-    if (!key) return json({ error: 'missing_auth' }, { status: 401 })
-
-    const auth = await authRestaurant(env, key)
-    if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
-    if (auth.role !== 'master') return json({ error: 'forbidden' }, { status: 403 })
+    const auth = await requireAuth(env, req)
+    if (!auth) return json({ error: 'missing_auth' }, { status: 401 })
+    if (auth.role !== 'owner') return json({ error: 'forbidden' }, { status: 403 })
 
     const body = await readJsonOptional<{ adminEmail?: string | null }>(req)
     const nextRaw = typeof body?.adminEmail === 'string' ? body.adminEmail : ''
@@ -486,12 +627,9 @@ async function handle(req: Request, env: Env): Promise<Response> {
   }
 
   if (url.pathname === '/api/qr/list' && req.method === 'GET') {
-    const key = parseAuthKeyFromHeader(req)
-    if (!key) return json({ error: 'missing_auth' }, { status: 401 })
-
-    const auth = await authRestaurant(env, key)
-    if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
-    if (auth.role !== 'master') return json({ error: 'forbidden' }, { status: 403 })
+    const auth = await requireAuth(env, req)
+    if (!auth) return json({ error: 'missing_auth' }, { status: 401 })
+    if (auth.role !== 'owner') return json({ error: 'forbidden' }, { status: 403 })
 
     const list = normalizeQrLinks(auth.rec)
 
@@ -533,12 +671,9 @@ async function handle(req: Request, env: Env): Promise<Response> {
   }
 
   if (url.pathname === '/api/qr/create' && req.method === 'POST') {
-    const key = parseAuthKeyFromHeader(req)
-    if (!key) return json({ error: 'missing_auth' }, { status: 401 })
-
-    const auth = await authRestaurant(env, key)
-    if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
-    if (auth.role !== 'master') return json({ error: 'forbidden' }, { status: 403 })
+    const auth = await requireAuth(env, req)
+    if (!auth) return json({ error: 'missing_auth' }, { status: 401 })
+    if (auth.role !== 'owner') return json({ error: 'forbidden' }, { status: 403 })
 
     const body = await readJsonOptional<{ role?: Role }>(req)
     const role: Role = body?.role === 'master' || body?.role === 'worker' ? body.role : 'worker'
@@ -580,12 +715,9 @@ async function handle(req: Request, env: Env): Promise<Response> {
   }
 
   if (url.pathname === '/api/qr/revoke' && req.method === 'POST') {
-    const key = parseAuthKeyFromHeader(req)
-    if (!key) return json({ error: 'missing_auth' }, { status: 401 })
-
-    const auth = await authRestaurant(env, key)
-    if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
-    if (auth.role !== 'master') return json({ error: 'forbidden' }, { status: 403 })
+    const auth = await requireAuth(env, req)
+    if (!auth) return json({ error: 'missing_auth' }, { status: 401 })
+    if (auth.role !== 'owner') return json({ error: 'forbidden' }, { status: 403 })
 
     const body = await readJson<{ tokenHash: string }>(req)
     const tokenHash = typeof body.tokenHash === 'string' ? body.tokenHash.trim() : ''
@@ -604,12 +736,9 @@ async function handle(req: Request, env: Env): Promise<Response> {
   }
 
   if (url.pathname === '/api/worker/regenerate' && req.method === 'POST') {
-    const key = parseAuthKeyFromHeader(req)
-    if (!key) return json({ error: 'missing_auth' }, { status: 401 })
-
-    const auth = await authRestaurant(env, key)
-    if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
-    if (auth.role !== 'master') return json({ error: 'forbidden' }, { status: 403 })
+    const auth = await requireAuth(env, req)
+    if (!auth) return json({ error: 'missing_auth' }, { status: 401 })
+    if (auth.role !== 'owner') return json({ error: 'forbidden' }, { status: 403 })
 
     const oldWorkerKey = auth.rec.workerKey
     let nextWorkerKey: string | null = null
@@ -634,12 +763,9 @@ async function handle(req: Request, env: Env): Promise<Response> {
   }
 
   if (url.pathname === '/api/worker/set-key' && req.method === 'POST') {
-    const key = parseAuthKeyFromHeader(req)
-    if (!key) return json({ error: 'missing_auth' }, { status: 401 })
-
-    const auth = await authRestaurant(env, key)
-    if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
-    if (auth.role !== 'master') return json({ error: 'forbidden' }, { status: 403 })
+    const auth = await requireAuth(env, req)
+    if (!auth) return json({ error: 'missing_auth' }, { status: 401 })
+    if (auth.role !== 'owner') return json({ error: 'forbidden' }, { status: 403 })
 
     const body = await readJsonOptional<{ workerKey?: string }>(req)
     const nextWorkerKey = normalizeKey(String(body?.workerKey ?? ''))
@@ -667,33 +793,24 @@ async function handle(req: Request, env: Env): Promise<Response> {
   }
 
   if (url.pathname === '/api/keys' && req.method === 'GET') {
-    const key = parseAuthKeyFromHeader(req)
-    if (!key) return json({ error: 'missing_auth' }, { status: 401 })
-
-    const auth = await authRestaurant(env, key)
-    if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
-    if (auth.role !== 'master') return json({ error: 'forbidden' }, { status: 403 })
+    const auth = await requireAuth(env, req)
+    if (!auth) return json({ error: 'missing_auth' }, { status: 401 })
+    if (auth.role !== 'owner') return json({ error: 'forbidden' }, { status: 403 })
 
     return json({ workerKey: auth.rec.workerKey })
   }
 
   if (url.pathname === '/api/restaurant' && req.method === 'GET') {
-    const key = parseAuthKeyFromHeader(req)
-    if (!key) return json({ error: 'missing_auth' }, { status: 401 })
-
-    const auth = await authRestaurant(env, key)
-    if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
+    const auth = await requireAuth(env, req)
+    if (!auth) return json({ error: 'missing_auth' }, { status: 401 })
 
     return json({ restaurant: auth.rec.public })
   }
 
   if (url.pathname === '/api/restaurant' && req.method === 'PUT') {
-    const key = parseAuthKeyFromHeader(req)
-    if (!key) return json({ error: 'missing_auth' }, { status: 401 })
-
-    const auth = await authRestaurant(env, key)
-    if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
-    if (auth.role !== 'master') return json({ error: 'forbidden' }, { status: 403 })
+    const auth = await requireAuth(env, req)
+    if (!auth) return json({ error: 'missing_auth' }, { status: 401 })
+    if (auth.role !== 'owner') return json({ error: 'forbidden' }, { status: 403 })
 
     const body = await readJson<{ name?: string; address?: string; city?: string; phone?: string; cuisineType?: string }>(req)
 
@@ -711,11 +828,8 @@ async function handle(req: Request, env: Env): Promise<Response> {
   }
 
   if (url.pathname === '/api/menu/presign-upload' && req.method === 'POST') {
-    const key = parseAuthKeyFromHeader(req)
-    if (!key) return json({ error: 'missing_auth' }, { status: 401 })
-
-    const auth = await authRestaurant(env, key)
-    if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
+    const auth = await requireAuth(env, req)
+    if (!auth) return json({ error: 'missing_auth' }, { status: 401 })
 
     const body = await readJson<{ date?: string; contentType?: string }>(req)
     const date = body.date ?? todayISO()
@@ -742,11 +856,8 @@ async function handle(req: Request, env: Env): Promise<Response> {
   }
 
   if (url.pathname === '/api/event/presign-upload' && req.method === 'POST') {
-    const key = parseAuthKeyFromHeader(req)
-    if (!key) return json({ error: 'missing_auth' }, { status: 401 })
-
-    const auth = await authRestaurant(env, key)
-    if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
+    const auth = await requireAuth(env, req)
+    if (!auth) return json({ error: 'missing_auth' }, { status: 401 })
 
     const body = await readJson<{ date?: string; contentType?: string }>(req)
     const date = body.date ?? todayISO()
@@ -772,11 +883,8 @@ async function handle(req: Request, env: Env): Promise<Response> {
   }
 
   if (url.pathname === '/api/permanent-menu/presign-upload' && req.method === 'POST') {
-    const key = parseAuthKeyFromHeader(req)
-    if (!key) return json({ error: 'missing_auth' }, { status: 401 })
-
-    const auth = await authRestaurant(env, key)
-    if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
+    const auth = await requireAuth(env, req)
+    if (!auth) return json({ error: 'missing_auth' }, { status: 401 })
 
     const body = await readJson<{ contentType?: string }>(req)
 
@@ -803,12 +911,9 @@ async function handle(req: Request, env: Env): Promise<Response> {
   }
 
   if (url.pathname === '/api/permanent-menus/reorder' && req.method === 'POST') {
-    const key = parseAuthKeyFromHeader(req)
-    if (!key) return json({ error: 'missing_auth' }, { status: 401 })
-
-    const auth = await authRestaurant(env, key)
-    if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
-    if (auth.role !== 'master') return json({ error: 'forbidden' }, { status: 403 })
+    const auth = await requireAuth(env, req)
+    if (!auth) return json({ error: 'missing_auth' }, { status: 401 })
+    if (auth.role !== 'owner') return json({ error: 'forbidden' }, { status: 403 })
 
     const body = await readJsonOptional<{ ids?: string[] }>(req)
     const ids = Array.isArray(body?.ids) ? body?.ids : null
@@ -833,12 +938,9 @@ async function handle(req: Request, env: Env): Promise<Response> {
   }
 
   if (url.pathname === '/api/restaurant-photos/reorder' && req.method === 'POST') {
-    const key = parseAuthKeyFromHeader(req)
-    if (!key) return json({ error: 'missing_auth' }, { status: 401 })
-
-    const auth = await authRestaurant(env, key)
-    if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
-    if (auth.role !== 'master') return json({ error: 'forbidden' }, { status: 403 })
+    const auth = await requireAuth(env, req)
+    if (!auth) return json({ error: 'missing_auth' }, { status: 401 })
+    if (auth.role !== 'owner') return json({ error: 'forbidden' }, { status: 403 })
 
     const body = await readJsonOptional<{ ids?: string[] }>(req)
     const ids = Array.isArray(body?.ids) ? body?.ids : null
@@ -863,11 +965,8 @@ async function handle(req: Request, env: Env): Promise<Response> {
   }
 
   if (url.pathname === '/api/restaurant-photos/presign-upload' && req.method === 'POST') {
-    const key = parseAuthKeyFromHeader(req)
-    if (!key) return json({ error: 'missing_auth' }, { status: 401 })
-
-    const auth = await authRestaurant(env, key)
-    if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
+    const auth = await requireAuth(env, req)
+    if (!auth) return json({ error: 'missing_auth' }, { status: 401 })
 
     const body = await readJson<{ contentType?: string }>(req)
 
@@ -894,11 +993,8 @@ async function handle(req: Request, env: Env): Promise<Response> {
   }
 
   if (url.pathname === '/api/menus' && req.method === 'GET') {
-    const key = parseAuthKeyFromHeader(req)
-    if (!key) return json({ error: 'missing_auth' }, { status: 401 })
-
-    const auth = await authRestaurant(env, key)
-    if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
+    const auth = await requireAuth(env, req)
+    if (!auth) return json({ error: 'missing_auth' }, { status: 401 })
 
     return json({
       id: auth.rec.id,
@@ -907,11 +1003,8 @@ async function handle(req: Request, env: Env): Promise<Response> {
   }
 
   if (url.pathname === '/api/event' && req.method === 'GET') {
-    const key = parseAuthKeyFromHeader(req)
-    if (!key) return json({ error: 'missing_auth' }, { status: 401 })
-
-    const auth = await authRestaurant(env, key)
-    if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
+    const auth = await requireAuth(env, req)
+    if (!auth) return json({ error: 'missing_auth' }, { status: 401 })
 
     const ev = auth.rec.event
     if (!ev) return json({ id: auth.rec.id, event: null })
@@ -925,11 +1018,8 @@ async function handle(req: Request, env: Env): Promise<Response> {
 
   // Proxy upload fallback (when createPresignedUrl is unavailable)
   if (url.pathname === '/api/menu/upload' && req.method === 'PUT') {
-    const key = parseAuthKeyFromHeader(req)
-    if (!key) return json({ error: 'missing_auth' }, { status: 401 })
-
-    const auth = await authRestaurant(env, key)
-    if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
+    const auth = await requireAuth(env, req)
+    if (!auth) return json({ error: 'missing_auth' }, { status: 401 })
 
     const date = url.searchParams.get('date') ?? todayISO()
     const contentType = req.headers.get('content-type') ?? 'image/jpeg'
@@ -952,11 +1042,8 @@ async function handle(req: Request, env: Env): Promise<Response> {
 
   // Proxy upload fallback (when createPresignedUrl is unavailable)
   if (url.pathname === '/api/event/upload' && req.method === 'PUT') {
-    const key = parseAuthKeyFromHeader(req)
-    if (!key) return json({ error: 'missing_auth' }, { status: 401 })
-
-    const auth = await authRestaurant(env, key)
-    if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
+    const auth = await requireAuth(env, req)
+    if (!auth) return json({ error: 'missing_auth' }, { status: 401 })
 
     const date = url.searchParams.get('date') ?? todayISO()
     if (typeof date !== 'string' || date.length !== 10) return json({ error: 'invalid_date' }, { status: 400 })
@@ -978,11 +1065,8 @@ async function handle(req: Request, env: Env): Promise<Response> {
 
   // Proxy upload fallback (when createPresignedUrl is unavailable)
   if (url.pathname === '/api/restaurant-photos/upload' && req.method === 'PUT') {
-    const key = parseAuthKeyFromHeader(req)
-    if (!key) return json({ error: 'missing_auth' }, { status: 401 })
-
-    const auth = await authRestaurant(env, key)
-    if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
+    const auth = await requireAuth(env, req)
+    if (!auth) return json({ error: 'missing_auth' }, { status: 401 })
 
     const pid = url.searchParams.get('id')
     if (!pid) return json({ error: 'missing_id' }, { status: 400 })
@@ -1005,11 +1089,8 @@ async function handle(req: Request, env: Env): Promise<Response> {
 
   // Proxy upload fallback (when createPresignedUrl is unavailable)
   if (url.pathname === '/api/permanent-menu/upload' && req.method === 'PUT') {
-    const key = parseAuthKeyFromHeader(req)
-    if (!key) return json({ error: 'missing_auth' }, { status: 401 })
-
-    const auth = await authRestaurant(env, key)
-    if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
+    const auth = await requireAuth(env, req)
+    if (!auth) return json({ error: 'missing_auth' }, { status: 401 })
 
     const pid = url.searchParams.get('id')
     if (!pid) return json({ error: 'missing_id' }, { status: 400 })
@@ -1033,11 +1114,8 @@ async function handle(req: Request, env: Env): Promise<Response> {
   }
 
   if (url.pathname === '/api/menu' && req.method === 'DELETE') {
-    const key = parseAuthKeyFromHeader(req)
-    if (!key) return json({ error: 'missing_auth' }, { status: 401 })
-
-    const auth = await authRestaurant(env, key)
-    if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
+    const auth = await requireAuth(env, req)
+    if (!auth) return json({ error: 'missing_auth' }, { status: 401 })
 
     const date = url.searchParams.get('date')
     if (!date) return json({ error: 'missing_date' }, { status: 400 })
@@ -1053,11 +1131,8 @@ async function handle(req: Request, env: Env): Promise<Response> {
   }
 
   if (url.pathname === '/api/event' && req.method === 'DELETE') {
-    const key = parseAuthKeyFromHeader(req)
-    if (!key) return json({ error: 'missing_auth' }, { status: 401 })
-
-    const auth = await authRestaurant(env, key)
-    if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
+    const auth = await requireAuth(env, req)
+    if (!auth) return json({ error: 'missing_auth' }, { status: 401 })
 
     const ev = auth.rec.event
     if (!ev) return json({ ok: true, deleted: false })
@@ -1070,12 +1145,9 @@ async function handle(req: Request, env: Env): Promise<Response> {
   }
 
   if (url.pathname === '/api/restaurant-photos' && req.method === 'DELETE') {
-    const key = parseAuthKeyFromHeader(req)
-    if (!key) return json({ error: 'missing_auth' }, { status: 401 })
-
-    const auth = await authRestaurant(env, key)
-    if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
-    if (auth.role !== 'master') return json({ error: 'forbidden' }, { status: 403 })
+    const auth = await requireAuth(env, req)
+    if (!auth) return json({ error: 'missing_auth' }, { status: 401 })
+    if (auth.role !== 'owner') return json({ error: 'forbidden' }, { status: 403 })
 
     const pid = url.searchParams.get('id')
     if (!pid) return json({ error: 'missing_id' }, { status: 400 })
@@ -1092,12 +1164,9 @@ async function handle(req: Request, env: Env): Promise<Response> {
   }
 
   if (url.pathname === '/api/permanent-menu' && req.method === 'DELETE') {
-    const key = parseAuthKeyFromHeader(req)
-    if (!key) return json({ error: 'missing_auth' }, { status: 401 })
-
-    const auth = await authRestaurant(env, key)
-    if (!auth) return json({ error: 'invalid_key' }, { status: 401 })
-    if (auth.role !== 'master') return json({ error: 'forbidden' }, { status: 403 })
+    const auth = await requireAuth(env, req)
+    if (!auth) return json({ error: 'missing_auth' }, { status: 401 })
+    if (auth.role !== 'owner') return json({ error: 'forbidden' }, { status: 403 })
 
     const pid = url.searchParams.get('id')
     if (!pid) return json({ error: 'missing_id' }, { status: 400 })

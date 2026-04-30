@@ -2,8 +2,6 @@
 import { computed, onBeforeUnmount, ref, watchEffect } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
-import { apiFetch } from '../lib/api'
-import * as QRCode from 'qrcode'
 
 const route = useRoute()
 const router = useRouter()
@@ -77,20 +75,21 @@ async function startQrScan() {
         const codes = await detector.detect(videoEl.value)
         const raw = codes?.[0]?.rawValue
         if (raw && typeof raw === 'string') {
-          let token = ''
+          let code = ''
           try {
             const u = new URL(raw)
-            token = u.searchParams.get('t') ?? ''
+            code = u.searchParams.get('code') ?? u.searchParams.get('c') ?? u.searchParams.get('t') ?? ''
           } catch {
             // allow plain token
-            token = raw
+            code = raw
           }
 
-          token = token.trim()
-          if (token) {
+          code = code.trim()
+          if (code) {
             await stopQrScan()
             qrScannerOpen.value = false
-            await router.replace({ path: '/auth', query: { t: token } })
+            await auth.loginWithKey(code)
+            await router.replace('/dashboard')
             return
           }
         }
@@ -141,42 +140,14 @@ watchEffect(() => {
   }
 })
 
-const masterKeyShown = ref<string | null>(null)
-const ownerQrUrl = ref<string>('')
-const ownerQrSvg = ref<string>('')
-const ownerQrToken = ref<string>('')
+const ownerCodeShown = ref<string | null>(null)
+const staffCodeShown = ref<string | null>(null)
 
-async function generateOwnerQr(masterKey: string) {
-  const res = await apiFetch<{ token: string; url: string }>('/api/qr/create', {
-    method: 'POST',
-    key: masterKey,
-    body: { role: 'master' }
-  })
-
-  ownerQrUrl.value = res.url
-  ownerQrToken.value = res.token
-  ownerQrSvg.value = (await (QRCode as unknown as { toString: (text: string, opts: unknown) => Promise<string> }).toString(res.url, {
-    type: 'svg',
-    margin: 1,
-    width: 240
-  }))
-}
-
-async function copyOwnerQrUrl() {
-  if (!ownerQrUrl.value) return
-  await navigator.clipboard.writeText(ownerQrUrl.value)
-}
-
-async function loginWithOwnerQr() {
-  if (!ownerQrToken.value) return
-  await auth.loginWithQrToken(ownerQrToken.value)
-  await router.push({ path: '/onboarding' })
-}
-
-async function useMasterKeyToLogin() {
-  if (!masterKeyShown.value) return
-  key.value = masterKeyShown.value
-  masterKeyShown.value = null
+async function useOwnerCodeToLogin() {
+  if (!ownerCodeShown.value) return
+  key.value = ownerCodeShown.value
+  ownerCodeShown.value = null
+  staffCodeShown.value = null
   await auth.loginWithKey(key.value)
   await router.push({ path: '/onboarding' })
 }
@@ -184,12 +155,9 @@ async function useMasterKeyToLogin() {
 async function createAccount() {
   createError.value = ''
   try {
-    ownerQrUrl.value = ''
-    ownerQrSvg.value = ''
-    ownerQrToken.value = ''
     const res = desiredId.value.trim().length > 0 ? await auth.createAccountWithId(desiredId.value) : await auth.createAccount()
-    masterKeyShown.value = res.masterKey
-    await generateOwnerQr(res.masterKey)
+    ownerCodeShown.value = res.ownerCode
+    staffCodeShown.value = res.staffCode
   } catch (e) {
     createError.value = e instanceof Error ? e.message : 'create_error'
   }
@@ -233,35 +201,29 @@ function setMode(m: 'login' | 'create') {
           class="rounded-xl bg-primary px-4 py-3 font-medium text-background hover:bg-primary/90"
           @click="createAccount"
         >
-          Créer → obtenir la clé maître
+          Créer → obtenir les codes
         </button>
 
         <div v-if="createError" class="rounded-xl bg-black/10 p-4 text-sm text-primary/70">
           {{ createError }}
         </div>
 
-        <div v-if="masterKeyShown" class="rounded-xl bg-black/10 p-4">
-          <div class="text-sm text-primary/70">Clé maître (affichée une seule fois) :</div>
-          <div class="mt-2 break-all font-mono text-sm text-primary">{{ masterKeyShown }}</div>
-          <button
-            class="mt-3 rounded-lg bg-black/10 px-3 py-2 text-sm hover:bg-black/15"
-            @click="useMasterKeyToLogin"
-          >
-            Se connecter avec cette clé
-          </button>
+        <div v-if="ownerCodeShown" class="rounded-xl bg-black/10 p-4">
+          <div class="text-sm text-primary/70">Code admin (affiché une seule fois) :</div>
+          <div class="mt-2 break-all font-mono text-sm text-primary">{{ ownerCodeShown }}</div>
 
-          <div v-if="ownerQrUrl" class="mt-4 grid gap-3">
-            <div class="text-sm text-primary/70">QR owner (connexion) :</div>
-            <div class="rounded-xl bg-white p-4" v-html="ownerQrSvg" />
-            <div class="rounded-xl bg-black/5 p-3">
-              <div class="text-xs text-primary/70">Lien :</div>
-              <div class="mt-1 break-all font-mono text-xs text-primary">{{ ownerQrUrl }}</div>
-              <div class="mt-3 flex gap-2">
-                <button class="rounded-lg bg-black/10 px-3 py-2 text-sm hover:bg-black/15" type="button" @click="copyOwnerQrUrl">Copier le lien</button>
-                <button class="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-background hover:bg-primary/90" type="button" @click="loginWithOwnerQr">Se connecter sur cet appareil</button>
-              </div>
-            </div>
+          <div v-if="staffCodeShown" class="mt-4">
+            <div class="text-sm text-primary/70">Code employés (affiché une seule fois) :</div>
+            <div class="mt-2 break-all font-mono text-sm text-primary">{{ staffCodeShown }}</div>
           </div>
+
+          <button
+            class="mt-4 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-background hover:bg-primary/90"
+            type="button"
+            @click="useOwnerCodeToLogin"
+          >
+            Se connecter en admin
+          </button>
         </div>
       </div>
 
@@ -299,7 +261,7 @@ function setMode(m: 'login' | 'create') {
             <input
               v-model="key"
               class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 font-mono text-base text-primary outline-none focus:border-primary/60"
-              placeholder="code"
+              placeholder="code admin ou employés"
               autocomplete="off"
               autocapitalize="off"
               spellcheck="false"

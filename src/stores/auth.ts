@@ -1,12 +1,12 @@
 import { defineStore } from 'pinia'
 import { apiFetch } from '../lib/api'
 
-export type Role = 'master' | 'worker'
+export type SessionRole = 'owner' | 'staff'
 
 type AuthState = {
   key: string | null
   id: string | null
-  role: Role | null
+  role: SessionRole | null
   expiresAt: number | null
 }
 
@@ -40,7 +40,7 @@ export const useAuthStore = defineStore('auth', {
   state: (): AuthState => loadState(),
   getters: {
     isAuthed: (s) => Boolean(s.key && s.id && s.role && (s.expiresAt === null || Date.now() <= s.expiresAt)),
-    isMaster: (s) => s.role === 'master'
+    isMaster: (s) => s.role === 'owner'
   },
   actions: {
     logout() {
@@ -50,33 +50,29 @@ export const useAuthStore = defineStore('auth', {
       this.expiresAt = null
       saveState(this.$state)
     },
-    async loginWithKey(key: string) {
-      const res = await apiFetch<{ id: string; role: Role }>('/api/auth', {
+    async loginWithKey(code: string) {
+      const res = await apiFetch<{ token: string; role: SessionRole }>('/api/auth/login', {
         method: 'POST',
-        body: { key }
+        body: { code }
       })
 
-      this.key = key
-      this.id = res.id
+      const me = await apiFetch<{ restaurantId: string; role: SessionRole }>('/api/auth/me', {
+        method: 'GET',
+        key: res.token
+      })
+
+      this.key = res.token
+      this.id = me.restaurantId
       this.role = res.role
       this.expiresAt = Date.now() + ONE_YEAR_MS
       saveState(this.$state)
     },
 
     async loginWithQrToken(token: string) {
-      const res = await apiFetch<{ id: string; role: Role; key: string }>('/api/auth/qr', {
-        method: 'POST',
-        body: { token }
-      })
-
-      this.key = res.key
-      this.id = res.id
-      this.role = res.role
-      this.expiresAt = Date.now() + ONE_YEAR_MS
-      saveState(this.$state)
+      await this.loginWithKey(token)
     },
     async createAccount() {
-      const res = await apiFetch<{ id: string; workerKey: string; masterKey: string }>(
+      const res = await apiFetch<{ id: string; workerKey: string; masterKey: string; ownerCode: string; staffCode: string }>(
         '/api/account/create',
         { method: 'POST' }
       )
@@ -84,7 +80,7 @@ export const useAuthStore = defineStore('auth', {
     },
 
     async createAccountWithId(id: string) {
-      const res = await apiFetch<{ id: string; workerKey: string; masterKey: string }>(
+      const res = await apiFetch<{ id: string; workerKey: string; masterKey: string; ownerCode: string; staffCode: string }>(
         '/api/account/create',
         { method: 'POST', body: { id } }
       )

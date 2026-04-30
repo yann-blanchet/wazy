@@ -45,15 +45,6 @@ const restaurantAddress = ref<string>('')
 const restaurantCity = ref<string>('')
 const restaurantCuisineType = ref<string>('')
 
-type Role = 'master' | 'worker'
-type QrLinkMeta = {
-  tokenHash: string
-  role: Role
-  createdAt: number
-}
-
-const qrActiveCount = ref<number>(0)
-
 type MenuItem = { date: string; createdAt: number }
 const menus = ref<MenuItem[]>([])
 
@@ -67,7 +58,7 @@ function triggerCamera(target: 'menu' | 'event' = 'menu') {
 }
 
 const activeTab = ref<'menu' | 'resto'>('menu')
-const isEmployee = computed(() => auth.role === 'worker')
+const isEmployee = computed(() => auth.role === 'staff')
 
 onMounted(() => {
   const q = route.query.tab
@@ -177,17 +168,6 @@ onMounted(async () => {
     }
   } catch {
     eventItem.value = null
-  }
-
-  try {
-    if (auth.key && auth.isMaster) {
-      const res = await apiFetch<{ items: QrLinkMeta[] }>('/api/qr/list', { method: 'GET', key: auth.key })
-      qrActiveCount.value = Array.isArray(res.items) ? res.items.length : 0
-    } else {
-      qrActiveCount.value = 0
-    }
-  } catch {
-    qrActiveCount.value = 0
   }
 
   refreshServerPreview()
@@ -589,11 +569,11 @@ async function onTakePhotoChange(e: Event) {
           v-if="auth.isMaster"
           class="flex w-full items-center justify-between rounded-xl  px-4 py-3 text-left text-sm text-primary hover:bg-black/10"
           type="button"
-          @click="go('/qr-access')"
+          @click="go('/codes-acces')"
         >
           <div class="min-w-0">
-            <div class="text-sm text-primary">Accès QR</div>
-            <div class="mt-0.5 text-xs text-primary/60">{{ qrActiveCount }} actif(s)</div>
+            <div class="text-sm text-primary">Codes d’accès</div>
+            <div class="mt-0.5 text-xs text-primary/60">Admin + employés</div>
           </div>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-primary/60">
             <path d="M9 18l6-6-6-6" />

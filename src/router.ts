@@ -14,11 +14,13 @@ import StatsPage from './views/StatsPage.vue'
 import AuthPage from './views/AuthPage.vue'
 import AccessCodesPage from './views/AccessCodesPage.vue'
 import SuperAdminPage from './views/SuperAdminPage.vue'
+import PublicFeedPage from './views/PublicFeedPage.vue'
 
 export const routes: RouteRecordRaw[] = [
   { path: '/', name: 'login', component: LoginPage },
   { path: '/auth', name: 'auth', component: AuthPage },
   { path: '/login', redirect: '/' },
+  { path: '/feed', name: 'feed', component: PublicFeedPage },
   { path: '/dashboard', name: 'dashboard', component: DashboardPage },
   { path: '/codes-acces', name: 'codes-acces', component: AccessCodesPage },
   { path: '/infos', name: 'infos', component: InfosPage },

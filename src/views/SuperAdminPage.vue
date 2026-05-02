@@ -5,21 +5,20 @@ import { apiFetch } from '../lib/api'
 
 const router = useRouter()
 
+function goBack() {
+  router.back()
+}
+
 const LS_KEY = 'vazy_admin_token'
 
 const token = ref<string>('')
 const status = ref<string>('')
-const seeding = ref<boolean>(false)
-const purging = ref<boolean>(false)
 const tab = ref<'actions' | 'restaurants'>('actions')
 
 const city = ref<string>('Toulouse')
 const centerLat = ref<string>('43.6045')
 const centerLng = ref<string>('1.4440')
-const radiusMeters = ref<string>('2000')
-const count = ref<string>('20')
-
-const imagePrefix = ref<string>('seeds/photos/')
+const radiusMeters = ref<string>('1000')
 
 const osmLimit = ref<string>('200')
 const importingOsm = ref<boolean>(false)
@@ -195,102 +194,76 @@ watch(
       await loadRestaurants(true)
     }
   },
-  { immediate: false }
+  { flush: 'post' }
 )
-
-async function goBack() {
-  await router.push({ path: '/dashboard', query: { tab: 'resto' } })
-}
-
-async function seed() {
-  try {
-    status.value = ''
-    seeding.value = true
-
-    const n = Number(count.value)
-    const lat = Number(centerLat.value)
-    const lng = Number(centerLng.value)
-    const r = Number(radiusMeters.value)
-
-    if (!Number.isFinite(n) || n <= 0 || n > 200) throw new Error('invalid_count')
-    if (!Number.isFinite(lat) || lat < -90 || lat > 90) throw new Error('invalid_lat')
-    if (!Number.isFinite(lng) || lng < -180 || lng > 180) throw new Error('invalid_lng')
-    if (!Number.isFinite(r) || r <= 0 || r > 20000) throw new Error('invalid_radius')
-    if (city.value.trim().length === 0) throw new Error('missing_city')
-    if (imagePrefix.value.trim().length === 0) throw new Error('missing_image_prefix')
-
-    const res = await apiFetch<{ ok: boolean; created: Array<{ id: string; ownerCode: string; staffCode: string }> }>('/api/admin/seed', {
-      method: 'POST',
-      key: bearer(),
-      body: {
-        count: n,
-        city: city.value.trim(),
-        centerLat: lat,
-        centerLng: lng,
-        radiusMeters: r,
-        imagePrefix: imagePrefix.value.trim()
-      }
-    })
-
-    status.value = `OK: ${res.created.length} restaurants créés.`
-  } catch (e) {
-    status.value = e instanceof Error ? e.message : 'seed_error'
-  } finally {
-    seeding.value = false
-  }
-}
 
 async function importOsm() {
   try {
     status.value = ''
     importingOsm.value = true
 
+    const limit = Number(osmLimit.value)
     const lat = Number(centerLat.value)
     const lng = Number(centerLng.value)
-    const r = Number(radiusMeters.value)
-    const lim = Number(osmLimit.value)
+    const radius = Number(radiusMeters.value)
 
+    if (!Number.isFinite(limit) || limit <= 0 || limit > 200) throw new Error('invalid_limit')
     if (!Number.isFinite(lat) || lat < -90 || lat > 90) throw new Error('invalid_lat')
     if (!Number.isFinite(lng) || lng < -180 || lng > 180) throw new Error('invalid_lng')
-    if (!Number.isFinite(r) || r <= 0 || r > 10000) throw new Error('invalid_radius')
-    if (!Number.isFinite(lim) || lim <= 0 || lim > 500) throw new Error('invalid_limit')
+    if (!Number.isFinite(radius) || radius <= 0 || radius > 10000) throw new Error('invalid_radius')
     if (city.value.trim().length === 0) throw new Error('missing_city')
 
-    const res = await apiFetch<{ ok: boolean; created: number; updated: number; imported: number; found: number }>('/api/admin/import-osm', {
-      method: 'POST',
-      key: bearer(),
-      body: {
-        city: city.value.trim(),
-        centerLat: lat,
-        centerLng: lng,
-        radiusMeters: r,
-        limit: Math.floor(lim)
-      }
-    })
+    type ImportOsmRes = {
+      ok: boolean
+      requested: number
+      found: number
+      imported: number
+      created: number
+      updated: number
+      ids: string[]
+      cursor: number | null
+      done: boolean
+    }
 
-    status.value = `OK: OSM import — ${res.created} créés, ${res.updated} mis à jour (sur ${res.imported}/${res.found}).`
+    let cursor: number | null = 0
+    let totalImported = 0
+    let totalCreated = 0
+    let totalUpdated = 0
+    let found = 0
+
+    for (let i = 0; i < 50; i++) {
+      const res: ImportOsmRes = await apiFetch<ImportOsmRes>('/api/admin/import-osm', {
+        method: 'POST',
+        key: bearer(),
+        body: {
+          city: city.value.trim(),
+          centerLat: lat,
+          centerLng: lng,
+          radiusMeters: radius,
+          limit,
+          cursor
+        }
+      })
+
+      found = res.found
+      totalImported += res.imported
+      totalCreated += res.created
+      totalUpdated += res.updated
+      cursor = res.cursor
+
+      status.value = `Import OSM… ${totalImported}/${found} (créés ${totalCreated}, maj ${totalUpdated})`
+
+      if (res.done) {
+        status.value = `OK: ${totalCreated} créés, ${totalUpdated} mis à jour. (${totalImported}/${found})`
+        break
+      }
+    }
+
+    await loadRestaurants(true)
   } catch (e) {
     status.value = e instanceof Error ? e.message : 'import_osm_error'
   } finally {
     importingOsm.value = false
-  }
-}
-
-async function purgeSeed() {
-  try {
-    status.value = ''
-    purging.value = true
-
-    const res = await apiFetch<{ ok: boolean; deleted: number }>('/api/admin/purge-seed', {
-      method: 'POST',
-      key: bearer()
-    })
-
-    status.value = `OK: ${res.deleted} restaurants seed supprimés.`
-  } catch (e) {
-    status.value = e instanceof Error ? e.message : 'purge_error'
-  } finally {
-    purging.value = false
   }
 }
 
@@ -330,9 +303,6 @@ function saveToken() {
         <button class="rounded-xl bg-black/10 px-4 py-3 text-sm font-medium text-primary hover:bg-black/15" type="button" @click="saveToken">
           Enregistrer token
         </button>
-        <button class="rounded-xl bg-black/10 px-4 py-3 text-sm font-medium text-primary hover:bg-black/15" type="button" @click="purgeSeed" :disabled="purging">
-          Purger seed
-        </button>
       </div>
     </section>
 
@@ -357,7 +327,7 @@ function saveToken() {
 
     <section v-if="tab === 'actions'" class="mt-4 grid gap-4">
       <section class="grid gap-4 rounded-2xl bg-black/5 p-5">
-        <div class="text-sm font-semibold text-primary">Seed (prod)</div>
+        <div class="text-sm font-semibold text-primary">Importer depuis OSM (amenity=restaurant)</div>
 
         <div class="grid gap-3">
           <label class="grid gap-2">
@@ -376,36 +346,13 @@ function saveToken() {
             </label>
           </div>
 
-          <div class="grid grid-cols-2 gap-3">
-            <label class="grid gap-2">
-              <span class="text-sm text-primary/70">Rayon (m)</span>
-              <input v-model="radiusMeters" class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 font-mono text-sm text-primary outline-none" />
-            </label>
-            <label class="grid gap-2">
-              <span class="text-sm text-primary/70">Nombre restos</span>
-              <input v-model="count" class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 font-mono text-sm text-primary outline-none" />
-            </label>
-          </div>
-
           <label class="grid gap-2">
-            <span class="text-sm text-primary/70">Préfixe R2 (dossier) contenant les images</span>
-            <input v-model="imagePrefix" class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 font-mono text-sm text-primary outline-none" placeholder="seeds/photos/" />
+            <span class="text-sm text-primary/70">Rayon (m)</span>
+            <input v-model="radiusMeters" class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 font-mono text-sm text-primary outline-none" />
           </label>
 
-          <button class="rounded-xl bg-primary px-4 py-3 text-sm font-medium text-background hover:bg-primary/90" type="button" @click="seed" :disabled="seeding">
-            Seed restaurants + menu + event
-          </button>
-
-          <div v-if="status" class="text-sm text-primary/70">{{ status }}</div>
-        </div>
-      </section>
-
-      <section class="grid gap-4 rounded-2xl bg-black/5 p-5">
-        <div class="text-sm font-semibold text-primary">Importer depuis OSM (amenity=restaurant)</div>
-
-        <div class="grid gap-3">
           <label class="grid gap-2">
-            <span class="text-sm text-primary/70">Limite (max 500)</span>
+            <span class="text-sm text-primary/70">Limite (max 200)</span>
             <input v-model="osmLimit" class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 font-mono text-sm text-primary outline-none" />
           </label>
 

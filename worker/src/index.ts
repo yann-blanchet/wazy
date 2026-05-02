@@ -828,6 +828,7 @@ async function handle(req: Request, env: Env): Promise<Response> {
       centerLng?: number
       radiusMeters?: number
       limit?: number
+      cursor?: number | null
     }>(req)
 
     const city = String(body?.city ?? '').trim()
@@ -837,12 +838,14 @@ async function handle(req: Request, env: Env): Promise<Response> {
     const centerLng = typeof body?.centerLng === 'number' && Number.isFinite(body.centerLng) ? body.centerLng : NaN
     const radiusMeters = typeof body?.radiusMeters === 'number' && Number.isFinite(body.radiusMeters) ? body.radiusMeters : 1500
     const limit = typeof body?.limit === 'number' && Number.isFinite(body.limit) ? Math.floor(body.limit) : 200
+    const cursorRaw = typeof body?.cursor === 'number' && Number.isFinite(body.cursor) ? Math.floor(body.cursor) : 0
 
     if (!Number.isFinite(centerLat) || !Number.isFinite(centerLng) || centerLat < -90 || centerLat > 90 || centerLng < -180 || centerLng > 180) {
       return json({ error: 'invalid_lat_lng' }, { status: 400 })
     }
     if (!Number.isFinite(radiusMeters) || radiusMeters <= 0 || radiusMeters > 10000) return json({ error: 'invalid_radius' }, { status: 400 })
-    if (!Number.isFinite(limit) || limit <= 0 || limit > 30) return json({ error: 'invalid_limit' }, { status: 400 })
+    if (!Number.isFinite(limit) || limit <= 0 || limit > 200) return json({ error: 'invalid_limit' }, { status: 400 })
+    if (!Number.isFinite(cursorRaw) || cursorRaw < 0 || cursorRaw > 100000) return json({ error: 'invalid_cursor' }, { status: 400 })
 
     const query = `
 [out:json][timeout:60];
@@ -932,7 +935,9 @@ out center ${limit};
       candidates.push({ osmType: el.type, osmId: el.id, name, lat, lng, address })
     }
 
-    const sliced = candidates.slice(0, limit)
+    const wanted = candidates.slice(0, limit)
+    const batchSize = 30
+    const sliced = wanted.slice(cursorRaw, cursorRaw + batchSize)
     let created = 0
     let updated = 0
     const ids: string[] = []
@@ -1053,7 +1058,9 @@ out center ${limit};
       if (ids.length < 20) ids.push(id)
     }
 
-    return json({ ok: true, requested: limit, found: candidates.length, imported: sliced.length, created, updated, ids })
+    const nextCursor = cursorRaw + sliced.length
+    const done = nextCursor >= wanted.length
+    return json({ ok: true, requested: limit, found: candidates.length, imported: sliced.length, created, updated, ids, cursor: done ? null : nextCursor, done })
   }
 
   if (url.pathname === '/api/admin/seed' && req.method === 'POST') {

@@ -20,4 +20,9 @@ bucket_name = "vazy-private-menus"
 binding = "RESTAURANTS" 
 id = "e345b0fad31c40b684337dda71d4a941"
 
+[[d1_databases]]
+binding = "DB"
+database_name = "vazy"
+database_id = "d5d1e7b3-fe33-460c-af83-d18b7e2d31d0"
+
 # Optional: for local dev you can use `wrangler kv:namespace create` and set the id.

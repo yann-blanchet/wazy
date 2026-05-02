@@ -5,6 +5,7 @@ export interface Env {
   ADMIN_TOKEN: string
   PRIVATE_MENUS: R2Bucket
   RESTAURANTS: KVNamespace
+  DB: D1Database
 }
 
 function randomHex(bytesLen = 32) {
@@ -322,6 +323,17 @@ function normalizeEmail(v: string) {
   return v.trim().toLowerCase()
 }
 
+function slugifyId(v: string) {
+  const base = v
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 32)
+  return base.replace(/-+/g, '-')
+}
+
 function isValidEmail(v: string) {
   if (v.length < 3 || v.length > 254) return false
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)
@@ -422,13 +434,31 @@ function todayISO() {
 }
 
 async function getRestaurant(env: Env, id: string): Promise<RestaurantRecord | null> {
-  const raw = await env.RESTAURANTS.get(`r:${id}`)
-  if (!raw) return null
-  return JSON.parse(raw) as RestaurantRecord
+  const row = await env.DB.prepare('SELECT record_json FROM restaurants WHERE id = ?1').bind(id).first<{ record_json: string }>()
+  if (!row?.record_json) return null
+  return JSON.parse(row.record_json) as RestaurantRecord
 }
 
 async function putRestaurant(env: Env, rec: RestaurantRecord) {
-  await env.RESTAURANTS.put(`r:${rec.id}`, JSON.stringify(rec))
+  const now = Date.now()
+  await env.DB.prepare(
+    'INSERT INTO restaurants (id, record_json, updated_at) VALUES (?1, ?2, ?3) ' +
+      'ON CONFLICT(id) DO UPDATE SET record_json = excluded.record_json, updated_at = excluded.updated_at'
+  )
+    .bind(rec.id, JSON.stringify(rec), now)
+    .run()
+}
+
+async function listAllR2Keys(bucket: R2Bucket, prefix: string): Promise<string[]> {
+  const out: string[] = []
+  let cursor: string | undefined = undefined
+  for (let i = 0; i < 100; i++) {
+    const res = await bucket.list({ prefix, cursor, limit: 1000 })
+    for (const obj of res.objects) out.push(obj.key)
+    cursor = res.truncated ? res.cursor : undefined
+    if (!cursor) break
+  }
+  return out
 }
 
 function isValidLatLng(lat: unknown, lng: unknown): lat is number {
@@ -486,32 +516,72 @@ function idxGeoKey(cell: string, restaurantId: string, type: PostType) {
 }
 
 async function getPost(env: Env, restaurantId: string, type: PostType): Promise<PostRecord | null> {
-  const raw = await env.RESTAURANTS.get(postKey(restaurantId, type))
-  if (!raw) return null
-  return JSON.parse(raw) as PostRecord
+  const row = await env.DB.prepare('SELECT record_json FROM posts WHERE restaurant_id = ?1 AND type = ?2')
+    .bind(restaurantId, type)
+    .first<{ record_json: string }>()
+  if (!row?.record_json) return null
+  return JSON.parse(row.record_json) as PostRecord
 }
 
 async function putPost(env: Env, post: PostRecord) {
-  await env.RESTAURANTS.put(postKey(post.restaurantId, post.type), JSON.stringify(post))
+  await env.DB.prepare(
+    'INSERT INTO posts (restaurant_id, type, record_json, city, expires_at, created_at, geo_cell, lat, lng) ' +
+      'VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9) ' +
+      'ON CONFLICT(restaurant_id, type) DO UPDATE SET record_json = excluded.record_json, city = excluded.city, expires_at = excluded.expires_at, created_at = excluded.created_at, geo_cell = excluded.geo_cell, lat = excluded.lat, lng = excluded.lng'
+  )
+    .bind(
+      post.restaurantId,
+      post.type,
+      JSON.stringify(post),
+      post.city,
+      post.expiresAt,
+      post.createdAt,
+      post.geoCell ?? null,
+      typeof post.lat === 'number' ? post.lat : null,
+      typeof post.lng === 'number' ? post.lng : null
+    )
+    .run()
 }
 
 async function deletePost(env: Env, restaurantId: string, type: PostType) {
-  await env.RESTAURANTS.delete(postKey(restaurantId, type))
+  await env.DB.prepare('DELETE FROM posts WHERE restaurant_id = ?1 AND type = ?2').bind(restaurantId, type).run()
 }
 
 async function deletePostIndexes(env: Env, post: PostRecord) {
-  if (post.city) await env.RESTAURANTS.delete(idxCityKey(post.city, post.restaurantId, post.type))
-  if (post.geoCell) await env.RESTAURANTS.delete(idxGeoKey(post.geoCell, post.restaurantId, post.type))
+  void env
+  void post
 }
 
 async function putPostIndexes(env: Env, post: PostRecord) {
-  const ttlSeconds = Math.max(60, Math.floor((post.expiresAt - Date.now()) / 1000))
-  if (post.city) {
-    await env.RESTAURANTS.put(idxCityKey(post.city, post.restaurantId, post.type), '1', { expirationTtl: ttlSeconds })
+  void env
+  void post
+}
+
+async function upsertMenuPostFromMenuObject(env: Env, rec: RestaurantRecord, objectKey: string) {
+  const city = String(rec.public.city ?? '').trim()
+  if (!city) return
+  const now = Date.now()
+  const geoCell = isValidLatLng(rec.public.lat, rec.public.lng) ? geoCellId(rec.public.lat!, rec.public.lng!, 1000) : undefined
+
+  const post: PostRecord = {
+    restaurantId: rec.id,
+    type: 'menu',
+    objectKey,
+    createdAt: now,
+    expiresAt: now + 1000 * 60 * 60 * 24,
+    city,
+    lat: rec.public.lat,
+    lng: rec.public.lng,
+    geoCell
   }
-  if (post.geoCell) {
-    await env.RESTAURANTS.put(idxGeoKey(post.geoCell, post.restaurantId, post.type), '1', { expirationTtl: ttlSeconds })
+
+  const prev = await getPost(env, rec.id, 'menu')
+  if (prev) {
+    await deletePostIndexes(env, prev)
+    await deletePost(env, rec.id, 'menu')
   }
+  await putPost(env, post)
+  await putPostIndexes(env, post)
 }
 
 async function upsertGeoIndex(env: Env, restaurantId: string, prev: RestaurantPublic | undefined, next: RestaurantPublic) {
@@ -571,6 +641,421 @@ async function handle(req: Request, env: Env): Promise<Response> {
     if (!requireAdmin(env, req)) return json({ error: 'missing_auth' }, { status: 401 })
   }
 
+  if (url.pathname === '/api/admin/restaurants' && req.method === 'GET') {
+    const limitRaw = url.searchParams.get('limit')
+    const cursor = url.searchParams.get('cursor')
+    const limit = limitRaw ? Math.floor(Number(limitRaw)) : 50
+    if (!Number.isFinite(limit) || limit <= 0 || limit > 200) return json({ error: 'invalid_limit' }, { status: 400 })
+
+    const afterId = typeof cursor === 'string' && cursor.trim().length > 0 ? cursor.trim() : ''
+    const q = afterId
+      ? env.DB.prepare('SELECT id, record_json FROM restaurants WHERE id > ?1 ORDER BY id ASC LIMIT ?2').bind(afterId, limit)
+      : env.DB.prepare('SELECT id, record_json FROM restaurants ORDER BY id ASC LIMIT ?1').bind(limit)
+    const rows = await q.all<{ id: string; record_json: string }>()
+
+    const items: Array<{ id: string; public: RestaurantPublic }> = []
+    for (const r of rows.results) {
+      try {
+        const rec = JSON.parse(r.record_json) as RestaurantRecord
+        items.push({ id: rec.id, public: rec.public })
+      } catch {
+        // ignore
+      }
+    }
+
+    const nextCursor = items.length > 0 ? items[items.length - 1].id : null
+    return json({ items, cursor: nextCursor })
+  }
+
+  if (url.pathname === '/api/admin/purge-all' && req.method === 'POST') {
+    const body = await readJsonOptional<{ confirm?: string; cursor?: string }>(req)
+    if (String(body?.confirm ?? '') !== 'PURGE_ALL') return json({ error: 'confirm_required' }, { status: 400 })
+
+    const limit = 25
+    const afterId = typeof body?.cursor === 'string' && body.cursor.trim().length > 0 ? body.cursor.trim() : ''
+    const q = afterId
+      ? env.DB.prepare('SELECT id FROM restaurants WHERE id > ?1 ORDER BY id ASC LIMIT ?2').bind(afterId, limit)
+      : env.DB.prepare('SELECT id FROM restaurants ORDER BY id ASC LIMIT ?1').bind(limit)
+    const restaurantRows = await q.all<{ id: string }>()
+    const restaurantIds = restaurantRows.results.map((r) => r.id).filter((x) => x)
+
+    let deletedRestaurants = 0
+    let deletedR2Objects = 0
+
+    for (const id of restaurantIds) {
+      const rec = await getRestaurant(env, id)
+      if (!rec) continue
+
+      await deleteKeyIndex(env, rec.masterKey)
+      await deleteKeyIndex(env, rec.workerKey)
+      await deleteCodeIndex(env, rec.ownerCode ?? '')
+      await deleteCodeIndex(env, rec.staffCode ?? '')
+
+      if (isValidLatLng(rec.public.lat, rec.public.lng)) {
+        const cell = geoCellId(rec.public.lat!, rec.public.lng!, 1000)
+        await env.RESTAURANTS.delete(`geo:${cell}:${id}`)
+      }
+
+      for (const type of ['menu', 'event'] as const) {
+        const post = await getPost(env, id, type)
+        if (post) {
+          await deletePostIndexes(env, post)
+          await deletePost(env, id, type)
+          await env.PRIVATE_MENUS.delete(post.objectKey)
+          deletedR2Objects += 1
+        }
+      }
+
+      for (const m of rec.menus ?? []) {
+        if (m?.objectKey) {
+          await env.PRIVATE_MENUS.delete(m.objectKey)
+          deletedR2Objects += 1
+        }
+      }
+
+      if (rec.event?.objectKey) {
+        await env.PRIVATE_MENUS.delete(rec.event.objectKey)
+        deletedR2Objects += 1
+      }
+
+      for (const p of (rec.photos ?? []) as RestaurantPhotoItem[]) {
+        if (p?.objectKey) {
+          await env.PRIVATE_MENUS.delete(p.objectKey)
+          deletedR2Objects += 1
+        }
+      }
+
+      const perma = normalizePermanentMenus(rec)
+      for (const pm of perma) {
+        if (pm?.objectKey) {
+          await env.PRIVATE_MENUS.delete(pm.objectKey)
+          deletedR2Objects += 1
+        }
+      }
+
+      await env.RESTAURANTS.delete(`admin:seed:${id}`)
+      await env.RESTAURANTS.delete(`admin:osm:${id}`)
+
+      await env.DB.prepare('DELETE FROM restaurants WHERE id = ?1').bind(id).run()
+      deletedRestaurants += 1
+    }
+
+    const nextCursor = restaurantIds.length > 0 ? restaurantIds[restaurantIds.length - 1] : null
+    const done = restaurantIds.length < limit
+    if (done) {
+      await env.DB.prepare('DELETE FROM posts').run()
+      await env.DB.prepare('DELETE FROM osm_map').run()
+    }
+
+    return json({ ok: true, deletedRestaurants, deletedR2Objects, cursor: done ? null : nextCursor, done })
+  }
+
+  if (url.pathname === '/api/admin/menu/presign-upload' && req.method === 'POST') {
+    const body = await readJson<{ restaurantId: string; date?: string; contentType?: string }>(req)
+    const restaurantId = String(body.restaurantId ?? '').trim()
+    if (!restaurantId) return json({ error: 'missing_restaurant_id' }, { status: 400 })
+
+    const rec = await getRestaurant(env, restaurantId)
+    if (!rec) return json({ error: 'not_found' }, { status: 404 })
+
+    const date = typeof body.date === 'string' && body.date.length === 10 ? body.date : todayISO()
+    const objectKey = `menus/${rec.id}/${date}.jpg`
+
+    const presignFn = (env.PRIVATE_MENUS as unknown as { createPresignedUrl?: Function }).createPresignedUrl
+    const uploadUrl =
+      typeof presignFn === 'function'
+        ? await (presignFn as (opts: unknown) => Promise<string>)({
+            method: 'PUT',
+            key: objectKey,
+            expiresIn: 60 * 5,
+            headers: body.contentType ? { 'content-type': body.contentType } : undefined
+          })
+        : null
+
+    const nextMenus = rec.menus.filter((m) => m.date !== date)
+    nextMenus.unshift({ date, objectKey, createdAt: Date.now() })
+    rec.menus = nextMenus.slice(0, 30)
+    await putRestaurant(env, rec)
+
+    return json({ objectKey, uploadUrl })
+  }
+
+  if (url.pathname === '/api/admin/menu/finalize' && req.method === 'POST') {
+    const body = await readJson<{ restaurantId: string; date?: string }>(req)
+    const restaurantId = String(body.restaurantId ?? '').trim()
+    if (!restaurantId) return json({ error: 'missing_restaurant_id' }, { status: 400 })
+    const date = typeof body.date === 'string' && body.date.length === 10 ? body.date : todayISO()
+
+    const rec = await getRestaurant(env, restaurantId)
+    if (!rec) return json({ error: 'not_found' }, { status: 404 })
+    const m = rec.menus.find((x) => x.date === date)
+    if (!m) return json({ error: 'missing_menu' }, { status: 400 })
+
+    const obj = await env.PRIVATE_MENUS.get(m.objectKey)
+    if (!obj) return json({ error: 'missing_menu_object' }, { status: 400 })
+
+    await upsertMenuPostFromMenuObject(env, rec, m.objectKey)
+    return json({ ok: true })
+  }
+
+  if (url.pathname === '/api/admin/menu/upload' && req.method === 'PUT') {
+    const restaurantId = String(url.searchParams.get('restaurantId') ?? '').trim()
+    if (!restaurantId) return json({ error: 'missing_restaurant_id' }, { status: 400 })
+    const date = String(url.searchParams.get('date') ?? todayISO()).trim()
+    if (!date || date.length !== 10) return json({ error: 'invalid_date' }, { status: 400 })
+
+    const rec = await getRestaurant(env, restaurantId)
+    if (!rec) return json({ error: 'not_found' }, { status: 404 })
+
+    const objectKey = `menus/${rec.id}/${date}.jpg`
+    const contentType = req.headers.get('content-type') ?? 'image/jpeg'
+    await env.PRIVATE_MENUS.put(objectKey, req.body!, { httpMetadata: { contentType } })
+
+    const nextMenus = rec.menus.filter((m) => m.date !== date)
+    nextMenus.unshift({ date, objectKey, createdAt: Date.now() })
+    rec.menus = nextMenus.slice(0, 30)
+    await putRestaurant(env, rec)
+
+    await upsertMenuPostFromMenuObject(env, rec, objectKey)
+
+    return json({ ok: true, objectKey })
+  }
+
+  if (url.pathname === '/api/admin/import-osm' && req.method === 'POST') {
+    const body = await readJsonOptional<{
+      city?: string
+      centerLat?: number
+      centerLng?: number
+      radiusMeters?: number
+      limit?: number
+    }>(req)
+
+    const city = String(body?.city ?? '').trim()
+    if (!city) return json({ error: 'missing_city' }, { status: 400 })
+
+    const centerLat = typeof body?.centerLat === 'number' && Number.isFinite(body.centerLat) ? body.centerLat : NaN
+    const centerLng = typeof body?.centerLng === 'number' && Number.isFinite(body.centerLng) ? body.centerLng : NaN
+    const radiusMeters = typeof body?.radiusMeters === 'number' && Number.isFinite(body.radiusMeters) ? body.radiusMeters : 1500
+    const limit = typeof body?.limit === 'number' && Number.isFinite(body.limit) ? Math.floor(body.limit) : 200
+
+    if (!Number.isFinite(centerLat) || !Number.isFinite(centerLng) || centerLat < -90 || centerLat > 90 || centerLng < -180 || centerLng > 180) {
+      return json({ error: 'invalid_lat_lng' }, { status: 400 })
+    }
+    if (!Number.isFinite(radiusMeters) || radiusMeters <= 0 || radiusMeters > 10000) return json({ error: 'invalid_radius' }, { status: 400 })
+    if (!Number.isFinite(limit) || limit <= 0 || limit > 30) return json({ error: 'invalid_limit' }, { status: 400 })
+
+    const query = `
+[out:json][timeout:60];
+(
+  node[amenity=restaurant](around:${radiusMeters},${centerLat},${centerLng});
+  way[amenity=restaurant](around:${radiusMeters},${centerLat},${centerLng});
+  relation[amenity=restaurant](around:${radiusMeters},${centerLat},${centerLng});
+);
+out center ${limit};
+`.trim()
+
+    const endpoints = [
+      'https://overpass-api.de/api/interpreter',
+      'https://overpass.kumi.systems/api/interpreter',
+      'https://overpass.nchc.org.tw/api/interpreter'
+    ]
+
+    let overpassRes: Response | null = null
+    let overpassErrText = ''
+    let lastStatus = 0
+    let usedEndpoint = ''
+
+    for (const ep of endpoints) {
+      usedEndpoint = ep
+      const r = await fetch(ep, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/x-www-form-urlencoded; charset=utf-8',
+          accept: 'application/json',
+          'user-agent': 'vazy-worker/1.0 (admin import-osm)'
+        },
+        body: `data=${encodeURIComponent(query)}`
+      }).catch(() => null)
+
+      if (!r) {
+        lastStatus = 0
+        overpassErrText = 'network_error'
+        continue
+      }
+      if (r.ok) {
+        overpassRes = r
+        break
+      }
+
+      lastStatus = r.status
+      overpassErrText = await r.text().catch(() => '')
+    }
+
+    if (!overpassRes) {
+      return json(
+        {
+          error: 'overpass_failed',
+          message: `overpass_failed_${lastStatus || 'network'}:${usedEndpoint}:${overpassErrText.slice(0, 200)}`
+        },
+        { status: 502 }
+      )
+    }
+
+    type OverpassElement = {
+      type: 'node' | 'way' | 'relation'
+      id: number
+      lat?: number
+      lon?: number
+      center?: { lat: number; lon: number }
+      tags?: Record<string, string>
+    }
+    const parsed = (await overpassRes.json().catch(() => null)) as null | { elements?: OverpassElement[] }
+    const elements = Array.isArray(parsed?.elements) ? parsed!.elements : []
+
+    const candidates: Array<{ osmType: string; osmId: number; name: string; lat: number; lng: number; address: string }> = []
+    for (const el of elements) {
+      const tags = el.tags ?? {}
+      const name = String(tags.name ?? '').trim()
+      if (!name) continue
+
+      const lat = typeof el.lat === 'number' ? el.lat : typeof el.center?.lat === 'number' ? el.center.lat : NaN
+      const lng = typeof el.lon === 'number' ? el.lon : typeof el.center?.lon === 'number' ? el.center.lon : NaN
+      if (!isValidLatLng(lat, lng)) continue
+
+      const house = String(tags['addr:housenumber'] ?? '').trim()
+      const street = String(tags['addr:street'] ?? '').trim()
+      const postcode = String(tags['addr:postcode'] ?? '').trim()
+      const addrCity = String(tags['addr:city'] ?? '').trim()
+      const parts = [house && street ? `${house} ${street}` : street || house, postcode, addrCity].filter((x) => x && x.length > 0)
+      const address = parts.length > 0 ? parts.join(', ') : '—'
+
+      candidates.push({ osmType: el.type, osmId: el.id, name, lat, lng, address })
+    }
+
+    const sliced = candidates.slice(0, limit)
+    let created = 0
+    let updated = 0
+    const ids: string[] = []
+
+    for (const c of sliced) {
+      const osmTypeLetter = c.osmType[0]
+      const mappedRow = await env.DB.prepare('SELECT restaurant_id FROM osm_map WHERE osm_type = ?1 AND osm_id = ?2')
+        .bind(osmTypeLetter, c.osmId)
+        .first<{ restaurant_id: string }>()
+      const mapped = String(mappedRow?.restaurant_id ?? '').trim() || (await env.RESTAURANTS.get(`osm:map:${osmTypeLetter}:${c.osmId}`))?.trim()
+
+      let id = mapped && isValidRestaurantId(mapped) ? mapped : ''
+      if (!id) {
+        const nameSlug = slugifyId(c.name)
+        if (!nameSlug) continue
+        const citySlug = slugifyId(city)
+
+        const candidates: string[] = []
+        candidates.push(nameSlug)
+        if (citySlug) candidates.push(`${nameSlug}-${citySlug}`)
+
+        let chosen: string | null = null
+        for (const base of candidates) {
+          for (let i = 0; i < 50; i++) {
+            const cand = i === 0 ? base : `${base}-${i + 1}`
+            if (!isValidRestaurantId(cand)) continue
+            const existing = await getRestaurant(env, cand)
+            if (!existing) {
+              chosen = cand
+              break
+            }
+          }
+          if (chosen) break
+        }
+        if (!chosen) continue
+        id = chosen
+      }
+
+      const existing = await getRestaurant(env, id)
+
+      if (!existing) {
+        let workerKey: string | null = null
+        let masterKey: string | null = null
+        for (let j = 0; j < 10; j++) {
+          const wk = randomKey('wkr')
+          const mk = randomKey('msr')
+          const wkExisting = await getKeyIndex(env, wk)
+          const mkExisting = await getKeyIndex(env, mk)
+          if (!wkExisting && !mkExisting) {
+            workerKey = wk
+            masterKey = mk
+            break
+          }
+        }
+        if (!workerKey || !masterKey) return json({ error: 'key_generation_failed' }, { status: 500 })
+
+        const rec: RestaurantRecord = {
+          id,
+          workerKey,
+          masterKey,
+          employeeKeys: [workerKey],
+          ownerKeys: [masterKey],
+          ownerCode: undefined,
+          staffCode: undefined,
+          adminEmail: undefined,
+          public: {
+            id,
+            name: c.name,
+            address: c.address,
+            city,
+            lat: c.lat,
+            lng: c.lng,
+            phone: '',
+            cuisineType: ''
+          },
+          menus: [],
+          permanentMenu: undefined,
+          permanentMenus: [],
+          photos: [],
+          qrLinks: []
+        }
+
+        rec.ownerCode = makeOwnerCode()
+        rec.staffCode = makeStaffCode()
+
+        await putRestaurant(env, rec)
+        await putKeyIndex(env, masterKey, { id, role: 'master' })
+        await putKeyIndex(env, workerKey, { id, role: 'worker' })
+        await putCodeIndex(env, rec.ownerCode, id)
+        await putCodeIndex(env, rec.staffCode, id)
+        await upsertGeoIndex(env, id, undefined, rec.public)
+        await env.RESTAURANTS.put(`admin:osm:${id}`, '1')
+        await env.DB.prepare('INSERT INTO osm_map (osm_type, osm_id, restaurant_id) VALUES (?1, ?2, ?3) ON CONFLICT(osm_type, osm_id) DO UPDATE SET restaurant_id = excluded.restaurant_id')
+          .bind(osmTypeLetter, c.osmId, id)
+          .run()
+        created += 1
+      } else {
+        const prevPublic = existing.public
+        existing.public = {
+          id,
+          name: c.name,
+          address: c.address,
+          city,
+          lat: c.lat,
+          lng: c.lng,
+          phone: prevPublic.phone,
+          cuisineType: prevPublic.cuisineType
+        }
+        await upsertGeoIndex(env, id, prevPublic, existing.public)
+        await putRestaurant(env, existing)
+        await env.RESTAURANTS.put(`admin:osm:${id}`, '1')
+        await env.DB.prepare('INSERT INTO osm_map (osm_type, osm_id, restaurant_id) VALUES (?1, ?2, ?3) ON CONFLICT(osm_type, osm_id) DO UPDATE SET restaurant_id = excluded.restaurant_id')
+          .bind(osmTypeLetter, c.osmId, id)
+          .run()
+        updated += 1
+      }
+
+      if (ids.length < 20) ids.push(id)
+    }
+
+    return json({ ok: true, requested: limit, found: candidates.length, imported: sliced.length, created, updated, ids })
+  }
+
   if (url.pathname === '/api/admin/seed' && req.method === 'POST') {
     const body = await readJsonOptional<{
       count?: number
@@ -583,7 +1068,7 @@ async function handle(req: Request, env: Env): Promise<Response> {
     }>(req)
 
     const count = typeof body?.count === 'number' && Number.isFinite(body.count) ? Math.floor(body.count) : 0
-    if (count <= 0 || count > 200) return json({ error: 'invalid_count' }, { status: 400 })
+    if (count <= 0 || count > 30) return json({ error: 'invalid_count' }, { status: 400 })
 
     const city = String(body?.city ?? '').trim()
     if (!city) return json({ error: 'missing_city' }, { status: 400 })
@@ -1236,21 +1721,21 @@ async function handle(req: Request, env: Env): Promise<Response> {
     const hit = await cache.match(cacheKey)
     if (hit) return hit
 
-    const prefix = idxCityPrefix(city)
-    const idx = await env.RESTAURANTS.list({ prefix, limit: 200 })
-    const refs: Array<{ restaurantId: string; type: PostType }> = []
-
-    for (const k of idx.keys) {
-      const parts = k.name.split(':')
-      const restaurantId = parts[parts.length - 2]
-      const type = parts[parts.length - 1] as PostType
-      if (!restaurantId) continue
-      if (type !== 'menu' && type !== 'event') continue
-      refs.push({ restaurantId, type })
-    }
-
-    const posts = await Promise.all(refs.map((r) => getPost(env, r.restaurantId, r.type)))
     const now = Date.now()
+
+    const rows = await env.DB.prepare(
+      'SELECT record_json FROM posts WHERE city = ?1 AND expires_at > ?2 ORDER BY created_at DESC LIMIT 200'
+    )
+      .bind(city, now)
+      .all<{ record_json: string }>()
+
+    const posts = rows.results.map((r) => {
+      try {
+        return JSON.parse(r.record_json) as PostRecord
+      } catch {
+        return null
+      }
+    })
 
     const out: Array<{ restaurant: RestaurantPublic; post: PostRecord }> = []
     for (const p of posts) {
@@ -1366,6 +1851,22 @@ async function handle(req: Request, env: Env): Promise<Response> {
     await putRestaurant(env, auth.rec)
 
     return json({ objectKey, uploadUrl })
+  }
+
+  if (url.pathname === '/api/menu/finalize' && req.method === 'POST') {
+    const auth = await requireAuth(env, req)
+    if (!auth) return json({ error: 'missing_auth' }, { status: 401 })
+
+    const body = await readJsonOptional<{ date?: string }>(req)
+    const date = typeof body?.date === 'string' && body.date.length === 10 ? body.date : todayISO()
+    const m = auth.rec.menus.find((x) => x.date === date)
+    if (!m) return json({ error: 'missing_menu' }, { status: 400 })
+
+    const obj = await env.PRIVATE_MENUS.get(m.objectKey)
+    if (!obj) return json({ error: 'missing_menu_object' }, { status: 400 })
+
+    await upsertMenuPostFromMenuObject(env, auth.rec, m.objectKey)
+    return json({ ok: true })
   }
 
   if (url.pathname === '/api/event/presign-upload' && req.method === 'POST') {
@@ -1550,6 +2051,8 @@ async function handle(req: Request, env: Env): Promise<Response> {
     auth.rec.menus = nextMenus.slice(0, 30)
     await putRestaurant(env, auth.rec)
 
+    await upsertMenuPostFromMenuObject(env, auth.rec, objectKey)
+
     return json({ ok: true, objectKey })
   }
 
@@ -1696,7 +2199,7 @@ async function handle(req: Request, env: Env): Promise<Response> {
   }
 
   // Public metadata for /r/:id
-  const publicMatch = url.pathname.match(/^\/api\/public\/([a-z0-9]+)$/i)
+  const publicMatch = url.pathname.match(/^\/api\/public\/([a-z0-9_-]+)$/i)
   if (publicMatch && req.method === 'GET') {
     const id = publicMatch[1]
     const rec = await getRestaurant(env, id)
@@ -1715,7 +2218,7 @@ async function handle(req: Request, env: Env): Promise<Response> {
     })
   }
 
-  const postMatch = url.pathname.match(/^\/api\/public\/([a-z0-9]+)\/post\/(menu|event)$/i)
+  const postMatch = url.pathname.match(/^\/api\/public\/([a-z0-9_-]+)\/post\/(menu|event)$/i)
   if (postMatch && req.method === 'GET') {
     const id = postMatch[1]
     const type = postMatch[2] as PostType
@@ -1749,7 +2252,7 @@ async function handle(req: Request, env: Env): Promise<Response> {
     return new Response(obj.body, { status: 200, headers })
   }
 
-  const eventMatch = url.pathname.match(/^\/api\/public\/([a-z0-9]+)\/event$/i)
+  const eventMatch = url.pathname.match(/^\/api\/public\/([a-z0-9_-]+)\/event$/i)
   if (eventMatch && req.method === 'GET') {
     const id = eventMatch[1]
     const rec = await getRestaurant(env, id)
@@ -1786,7 +2289,7 @@ async function handle(req: Request, env: Env): Promise<Response> {
   }
 
   // Public image fetch: redirects to short-lived signed GET
-  const imgMatch = url.pathname.match(/^\/api\/public\/([a-z0-9]+)\/menu\/([0-9]{4}-[0-9]{2}-[0-9]{2})$/i)
+  const imgMatch = url.pathname.match(/^\/api\/public\/([a-z0-9_-]+)\/menu\/([0-9]{4}-[0-9]{2}-[0-9]{2})$/i)
   if (imgMatch && req.method === 'GET') {
     const id = imgMatch[1]
     const date = imgMatch[2]
@@ -1822,7 +2325,7 @@ async function handle(req: Request, env: Env): Promise<Response> {
     return new Response(obj.body, { status: 200, headers })
   }
 
-  const photoItemMatch = url.pathname.match(/^\/api\/public\/([a-z0-9]+)\/photo\/([a-z0-9_-]+)$/i)
+  const photoItemMatch = url.pathname.match(/^\/api\/public\/([a-z0-9_-]+)\/photo\/([a-z0-9_-]+)$/i)
   if (photoItemMatch && req.method === 'GET') {
     const id = photoItemMatch[1]
     const pid = photoItemMatch[2]
@@ -1859,7 +2362,7 @@ async function handle(req: Request, env: Env): Promise<Response> {
     return new Response(obj.body, { status: 200, headers })
   }
 
-  const permItemMatch = url.pathname.match(/^\/api\/public\/([a-z0-9]+)\/permanent-menu\/([a-z0-9_-]+)$/i)
+  const permItemMatch = url.pathname.match(/^\/api\/public\/([a-z0-9_-]+)\/permanent-menu\/([a-z0-9_-]+)$/i)
   if (permItemMatch && req.method === 'GET') {
     const id = permItemMatch[1]
     const pid = permItemMatch[2]
@@ -1896,7 +2399,7 @@ async function handle(req: Request, env: Env): Promise<Response> {
     return new Response(obj.body, { status: 200, headers })
   }
 
-  const permMatch = url.pathname.match(/^\/api\/public\/([a-z0-9]+)\/permanent-menu$/i)
+  const permMatch = url.pathname.match(/^\/api\/public\/([a-z0-9_-]+)\/permanent-menu$/i)
   if (permMatch && req.method === 'GET') {
     const id = permMatch[1]
     const rec = await getRestaurant(env, id)

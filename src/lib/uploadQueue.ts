@@ -148,6 +148,13 @@ export async function flushUploadQueue(opts: {
 
     if (!putRes.ok) throw new Error(`upload_failed_${putRes.status}`)
 
+    await apiFetch<{ ok: boolean }>('/api/menu/finalize', {
+      method: 'POST',
+      key: item.authKey,
+      suppressInvalidAuthEvent: true,
+      body: { date: item.date }
+    })
+
     await remove(item.id)
     uploaded += 1
   }

@@ -26,6 +26,8 @@ const importingOsm = ref<boolean>(false)
 const purgeAllConfirm = ref<string>('')
 const purgingAll = ref<boolean>(false)
 
+const searchQuery = ref<string>('')
+
 type AdminRestaurantItem = {
   id: string
   public: { id: string; name: string; address: string; city?: string; lat?: number; lng?: number }
@@ -70,6 +72,18 @@ const restaurants = ref<AdminRestaurantItem[]>([])
 const restaurantsCursor = ref<string | null>(null)
 const restaurantsLoading = ref<boolean>(false)
 const restaurantsError = ref<string>('')
+
+const filteredRestaurants = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase()
+  if (!q) return restaurants.value
+  return restaurants.value.filter((r) => {
+    const name = String(r.public?.name ?? '').toLowerCase()
+    const address = String(r.public?.address ?? '').toLowerCase()
+    const city = String(r.public?.city ?? '').toLowerCase()
+    const id = String(r.id ?? '').toLowerCase()
+    return name.includes(q) || address.includes(q) || city.includes(q) || id.includes(q)
+  })
+})
 
 const menuUploadingFor = ref<string>('')
 const menuFileInput = ref<HTMLInputElement | null>(null)
@@ -391,6 +405,15 @@ function saveToken() {
         <button class="text-sm text-secondary underline" type="button" @click="loadRestaurants(true)" :disabled="restaurantsLoading">Rafraîchir</button>
       </div>
 
+      <label class="grid gap-2">
+        <span class="text-sm text-primary/70">Recherche</span>
+        <input
+          v-model="searchQuery"
+          class="rounded-xl border border-black/10 bg-black/5 px-3 py-3 text-sm text-primary outline-none"
+          placeholder="Nom, adresse, ville, id…"
+        />
+      </label>
+
       <div v-if="restaurantsError" class="rounded-xl bg-black/5 p-4 text-sm text-primary/70">{{ restaurantsError }}</div>
 
       <div v-if="restaurants.length === 0 && restaurantsLoading" class="rounded-xl bg-black/5 p-4 text-sm text-primary/70">Chargement…</div>
@@ -398,7 +421,7 @@ function saveToken() {
 
       <div v-else class="grid gap-2">
         <div
-          v-for="r in restaurants"
+          v-for="r in filteredRestaurants"
           :key="r.id"
           class="rounded-xl bg-black/5 p-4 hover:bg-black/10"
         >
